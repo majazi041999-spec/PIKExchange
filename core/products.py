@@ -27,7 +27,7 @@ PRODUCT_ORDER: List[str] = [
 
 DEFAULT_PRODUCTS: Dict[str, dict] = {
     "rub_tinkoff": {
-        "title": "🇷🇺 خرید روبل تینکوف",
+        "title": "🟢 خرید روبل تینکوف 🇷🇺",
         "type": "rub_tiered",
         "base": "rub",
         "column": "buy",
@@ -38,7 +38,7 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         ],
     },
     "rub_single": {
-        "title": "🧾 خرید روبل تک‌فیشی",
+        "title": "🔵 خرید روبل تک‌فیشی 🧾",
         "type": "rub_single",
         "base": "rub",
         "column": "buy",
@@ -46,7 +46,7 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         "mult": 0.965,
     },
     "usd_stamped_sell": {
-        "title": "💵 فروش دلار مهردار یا کهنه",
+        "title": "🟡 فروش دلار مهردار یا کهنه 💵",
         "type": "simple",
         "base": "usd",
         "column": "sell",
@@ -56,7 +56,7 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         "unit": "دلار",
     },
     "usd_cash_buy": {
-        "title": "💵 خرید دلار نقدی",
+        "title": "🟠 خرید دلار نقدی 💵",
         "type": "simple",
         "base": "usd",
         "column": "buy",
@@ -66,7 +66,7 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         "unit": "دلار",
     },
     "toman_with_rub": {
-        "title": "💰 خرید تومان با روبل",
+        "title": "🟣 خرید تومان با روبل 💰",
         "type": "simple",
         "base": "rub",
         "column": "sell",

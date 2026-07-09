@@ -19,12 +19,12 @@ async def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
         if p:
             kb.row(_btn(p["title"], f"p:{pid}"))
     kb.row(
-        _btn("👛 کیف پول / موجودی", "wallet"),
+        _btn("👛 کیف پول", "wallet"),
         _btn("📋 معاملات من", "mytx"),
     )
-    kb.row(_btn("📞 پشتیبانی / ارتباط با ما", "support"))
+    kb.row(_btn("🆘 پشتیبانی و ارتباط با ما", "support"))
     if is_admin:
-        kb.row(_btn("🛠 پنل مدیریت", "admin"))
+        kb.row(_btn("⚙️ پنل مدیریت", "admin"))
     return kb.as_markup()
 
 
@@ -34,11 +34,16 @@ def back_menu_kb() -> InlineKeyboardMarkup:
     )
 
 
+# پالت رنگی برای پله‌های حجمی (به‌ترتیب حجم)
+_TIER_DOTS = ["🟢", "🟡", "🟠", "🔴", "🔵", "🟣"]
+
+
 def tiers_kb(pid: str, tiers: list) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    for t in tiers:
-        kb.row(_btn(f"نرخ لحظه‌ای — {t['label']}", f"tier:{pid}:{t['key']}"))
-    kb.row(_btn("🔙 بازگشت", "menu"))
+    for i, t in enumerate(tiers):
+        dot = _TIER_DOTS[i % len(_TIER_DOTS)]
+        kb.row(_btn(f"{dot} نرخ لحظه‌ای — {t['label']}", f"tier:{pid}:{t['key']}"))
+    kb.row(_btn("🔙 بازگشت به منوی اصلی", "menu"))
     return kb.as_markup()
 
 
