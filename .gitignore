@@ -1,0 +1,22 @@
+# env / secrets
+.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# runtime data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.log
+
+# update artifacts
+update-local-changes-*.patch
+
+# os
+.DS_Store
+Thumbs.db

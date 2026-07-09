@@ -1,0 +1,4 @@
+# خط‌پایان‌ها را روی سرور لینوکس سالم نگه دار (CRLF اسکریپت bash را خراب می‌کند)
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf

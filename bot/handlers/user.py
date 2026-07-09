@@ -1,0 +1,361 @@
+"""هندلرهای کاربر عادی: منو، مشاهده نرخ، قوانین، دریافت کارت و ارسال فیش."""
+import logging
+
+from aiogram import F, Router
+from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
+
+from core.config import ADMIN_IDS, RATE_VALIDITY_MINUTES, is_admin
+from core.db import (
+    create_transaction,
+    get_or_create_user,
+    get_setting,
+    get_transaction,
+    get_user_transactions,
+    update_transaction,
+)
+from core.products import get_product
+from core.rates import compute_simple_rate, compute_tier_rate
+from core.texts import get_text
+from core.utils import fa_digits, toman
+from bot.keyboards import (
+    agree_kb,
+    back_menu_kb,
+    card_kb,
+    admin_review_kb,
+    main_menu,
+    tiers_kb,
+)
+from bot.states import ReceiptFlow
+
+logger = logging.getLogger("pik.user")
+router = Router()
+
+STATUS_LABELS = {
+    "awaiting_receipt": "⏳ در انتظار ارسال فیش",
+    "receipt_sent": "🧾 فیش ارسال شد (در حال بررسی)",
+    "completed": "✅ تکمیل‌شده",
+    "canceled": "❌ رد/لغو شده",
+}
+
+
+async def _send_menu(target: Message, uid: int, greeting: bool = True):
+    welcome = await get_text("text_welcome")
+    kb = await main_menu(is_admin(uid))
+    await target.answer(welcome, reply_markup=kb, parse_mode="Markdown")
+
+
+@router.message(CommandStart())
+async def cmd_start(msg: Message, state: FSMContext):
+    await state.clear()
+    await get_or_create_user(msg.from_user.id, msg.from_user.username, msg.from_user.full_name)
+    await _send_menu(msg, msg.from_user.id)
+
+
+@router.callback_query(F.data == "menu")
+async def cb_menu(cb: CallbackQuery, state: FSMContext):
+    await state.clear()
+    kb = await main_menu(is_admin(cb.from_user.id))
+    welcome = await get_text("text_welcome")
+    try:
+        await cb.message.edit_text(welcome, reply_markup=kb, parse_mode="Markdown")
+    except Exception:
+        await cb.message.answer(welcome, reply_markup=kb, parse_mode="Markdown")
+    await cb.answer()
+
+
+# ─────────────────────────── مشاهده محصول / نرخ ───────────────────────────
+
+async def _rate_block(product: dict, rate: int, tier_label: str = "") -> str:
+    unit = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
+    head = product["title"]
+    if tier_label:
+        head += f"\n📊 {tier_label}"
+    rules = await get_text("text_rules")
+    return (
+        f"{head}\n\n"
+        f"💱 نرخ لحظه‌ای هر {unit}: *{toman(rate)}*\n"
+        f"⏱ اعتبار نرخ: {fa_digits(RATE_VALIDITY_MINUTES)} دقیقه\n\n"
+        f"{rules}"
+    )
+
+
+@router.callback_query(F.data.startswith("p:"))
+async def cb_product(cb: CallbackQuery):
+    pid = cb.data.split(":", 1)[1]
+    product = await get_product(pid)
+    if not product:
+        await cb.answer("این گزینه در دسترس نیست.", show_alert=True)
+        return
+
+    if product["type"] == "rub_tiered":
+        text = f"{product['title']}\n\nلطفاً حجم معامله‌ی خود را انتخاب کنید:"
+        try:
+            await cb.message.edit_text(text, reply_markup=tiers_kb(pid, product["tiers"]))
+        except Exception:
+            await cb.message.answer(text, reply_markup=tiers_kb(pid, product["tiers"]))
+        await cb.answer()
+        return
+
+    # rub_single یا simple → مستقیم نرخ + قوانین
+    await cb.answer("در حال دریافت نرخ لحظه‌ای…")
+    if product["type"] == "rub_single":
+        rate = await compute_tier_rate(product, {"mult": product.get("mult", 1.0)})
+        label = product.get("label", "")
+    else:
+        rate = await compute_simple_rate(product)
+        label = ""
+    if not rate:
+        await cb.message.answer(
+            "⚠️ در حال حاضر امکان دریافت نرخ لحظه‌ای نیست. لطفاً کمی بعد دوباره تلاش کنید یا با پشتیبانی در تماس باشید.",
+            reply_markup=back_menu_kb(),
+        )
+        return
+    text = await _rate_block(product, rate, label)
+    try:
+        await cb.message.edit_text(text, reply_markup=agree_kb(pid), parse_mode="Markdown")
+    except Exception:
+        await cb.message.answer(text, reply_markup=agree_kb(pid), parse_mode="Markdown")
+
+
+@router.callback_query(F.data.startswith("tier:"))
+async def cb_tier(cb: CallbackQuery):
+    _, pid, tier_key = cb.data.split(":", 2)
+    product = await get_product(pid)
+    if not product or product["type"] != "rub_tiered":
+        await cb.answer("این گزینه در دسترس نیست.", show_alert=True)
+        return
+    tier = next((t for t in product["tiers"] if t["key"] == tier_key), None)
+    if not tier:
+        await cb.answer("پله انتخاب‌شده معتبر نیست.", show_alert=True)
+        return
+
+    await cb.answer("در حال دریافت نرخ لحظه‌ای…")
+    rate = await compute_tier_rate(product, tier)
+    if not rate:
+        await cb.message.answer(
+            "⚠️ در حال حاضر امکان دریافت نرخ لحظه‌ای نیست. لطفاً کمی بعد دوباره تلاش کنید.",
+            reply_markup=back_menu_kb(),
+        )
+        return
+    text = await _rate_block(product, rate, tier["label"])
+    try:
+        await cb.message.edit_text(text, reply_markup=agree_kb(pid, tier_key), parse_mode="Markdown")
+    except Exception:
+        await cb.message.answer(text, reply_markup=agree_kb(pid, tier_key), parse_mode="Markdown")
+
+
+# ─────────────────────────── موافقت + دریافت کارت ───────────────────────────
+
+async def _card_text(product: dict, rate: int, tier_label: str, tx_id: int) -> str:
+    number = await get_setting("card_number", "")
+    holder = await get_setting("card_holder", "")
+    bank = await get_setting("card_bank", "")
+    unit = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
+
+    lines = [
+        "✅ *موافقت شما با قوانین ثبت شد.*",
+        "",
+        f"🧾 شماره معامله: `{fa_digits(tx_id)}`",
+        f"🔸 {product['title']}",
+    ]
+    if tier_label:
+        lines.append(f"📊 {tier_label}")
+    lines.append(f"💱 نرخ توافقی هر {unit}: *{toman(rate)}*")
+    lines.append("")
+    if number:
+        lines.append("💳 *اطلاعات کارت جهت واریز:*")
+        lines.append(f"شماره کارت: `{fa_digits(number)}`")
+        if holder:
+            lines.append(f"به نام: {holder}")
+        if bank:
+            lines.append(f"بانک: {bank}")
+    else:
+        lines.append("💳 اطلاعات کارت هنوز ثبت نشده است؛ لطفاً با پشتیبانی هماهنگ کنید.")
+    lines.append("")
+    lines.append("پس از واریز، دکمه‌ی «📤 ارسال فیش واریز» را بزنید و تصویر فیش را ارسال کنید.")
+    return "\n".join(lines)
+
+
+@router.callback_query(F.data.startswith("agree:"))
+async def cb_agree(cb: CallbackQuery):
+    _, pid, tier_key = cb.data.split(":", 2)
+    product = await get_product(pid)
+    if not product:
+        await cb.answer("این گزینه در دسترس نیست.", show_alert=True)
+        return
+
+    tier_label = ""
+    if product["type"] == "rub_tiered":
+        tier = next((t for t in product["tiers"] if t["key"] == tier_key), None)
+        if not tier:
+            await cb.answer("پله انتخاب‌شده معتبر نیست.", show_alert=True)
+            return
+        rate = await compute_tier_rate(product, tier)
+        tier_label = tier["label"]
+    elif product["type"] == "rub_single":
+        rate = await compute_tier_rate(product, {"mult": product.get("mult", 1.0)})
+        tier_label = product.get("label", "")
+    else:
+        rate = await compute_simple_rate(product)
+
+    if not rate:
+        await cb.answer("دریافت نرخ ناموفق بود. دوباره تلاش کنید.", show_alert=True)
+        return
+
+    user = await get_or_create_user(cb.from_user.id, cb.from_user.username, cb.from_user.full_name)
+    unit = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
+    tx_id = await create_transaction(
+        user_id=user["id"],
+        telegram_id=cb.from_user.id,
+        product_id=pid,
+        product_title=product["title"],
+        rate=rate,
+        tier_key=tier_key if tier_key != "-" else "",
+        tier_label=tier_label,
+        unit=unit,
+    )
+    text = await _card_text(product, rate, tier_label, tx_id)
+    try:
+        await cb.message.edit_text(text, reply_markup=card_kb(tx_id), parse_mode="Markdown")
+    except Exception:
+        await cb.message.answer(text, reply_markup=card_kb(tx_id), parse_mode="Markdown")
+    await cb.answer()
+
+
+# ─────────────────────────── ارسال فیش ───────────────────────────
+
+@router.callback_query(F.data.startswith("receipt:"))
+async def cb_receipt(cb: CallbackQuery, state: FSMContext):
+    tx_id = int(cb.data.split(":", 1)[1])
+    tx = await get_transaction(tx_id)
+    if not tx or tx["telegram_id"] != cb.from_user.id:
+        await cb.answer("معامله یافت نشد.", show_alert=True)
+        return
+    if tx["status"] not in ("awaiting_receipt", "receipt_sent"):
+        await cb.answer("این معامله دیگر در انتظار فیش نیست.", show_alert=True)
+        return
+    await state.set_state(ReceiptFlow.waiting_receipt)
+    await state.update_data(tx_id=tx_id)
+    await cb.message.answer(
+        f"📤 لطفاً تصویر فیش واریز معامله شماره {fa_digits(tx_id)} را ارسال کنید.\n"
+        "می‌توانید توضیح (مبلغ، تعداد کارت) را هم به‌همراه فیش بفرستید.\n\n"
+        "برای انصراف /cancel را بزنید.",
+    )
+    await cb.answer()
+
+
+@router.message(ReceiptFlow.waiting_receipt)
+async def receive_receipt(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    tx_id = data.get("tx_id")
+    tx = await get_transaction(tx_id) if tx_id else None
+    if not tx:
+        await state.clear()
+        await msg.answer("معامله یافت نشد.", reply_markup=back_menu_kb())
+        return
+
+    file_id = None
+    if msg.photo:
+        file_id = msg.photo[-1].file_id
+    elif msg.document:
+        file_id = msg.document.file_id
+
+    if not file_id and not (msg.text and msg.text.strip()):
+        await msg.answer("لطفاً تصویر فیش (عکس) یا توضیح متنی ارسال کنید.")
+        return
+
+    caption = msg.caption or msg.text or ""
+    await update_transaction(tx_id, receipt_file_id=file_id or "", status="receipt_sent",
+                             admin_note=caption[:500])
+    await state.clear()
+    await msg.answer(
+        "✅ فیش شما دریافت شد و برای بررسی به پشتیبانی ارسال گردید.\n"
+        "پس از تأیید، نتیجه از همین‌جا به شما اطلاع داده می‌شود. 🙏",
+        reply_markup=back_menu_kb(),
+    )
+    await _notify_admins_receipt(msg, tx, file_id, caption)
+
+
+async def _notify_admins_receipt(msg: Message, tx: dict, file_id: str, caption: str):
+    # parse_mode=None چون نام/توضیح کاربر ممکن است کاراکترهای مارک‌داون داشته باشد
+    uname = f"@{msg.from_user.username}" if msg.from_user.username else "—"
+    admin_caption = (
+        f"🧾 فیش جدید — معامله {fa_digits(tx['id'])}\n\n"
+        f"🔸 {tx['product_title']}\n"
+        + (f"📊 {tx['tier_label']}\n" if tx["tier_label"] else "")
+        + f"💱 نرخ: {toman(tx['rate'])} به ازای هر {tx['unit']}\n"
+        f"👤 کاربر: {msg.from_user.full_name} ({uname})\n"
+        f"🆔 آیدی: {fa_digits(msg.from_user.id)}\n"
+        + (f"📝 توضیح کاربر: {caption[:400]}\n" if caption else "")
+    )
+    for aid in ADMIN_IDS:
+        try:
+            if file_id:
+                await msg.bot.send_photo(aid, file_id, caption=admin_caption,
+                                         reply_markup=admin_review_kb(tx["id"]), parse_mode=None)
+            else:
+                await msg.bot.send_message(aid, admin_caption,
+                                           reply_markup=admin_review_kb(tx["id"]), parse_mode=None)
+        except Exception as e:
+            logger.warning("notify admin %s failed: %s", aid, e)
+
+
+# ─────────────────────────── کیف پول / معاملات / پشتیبانی ───────────────────────────
+
+@router.callback_query(F.data == "wallet")
+async def cb_wallet(cb: CallbackQuery):
+    user = await get_or_create_user(cb.from_user.id, cb.from_user.username, cb.from_user.full_name)
+    txs = await get_user_transactions(user["id"], limit=100)
+    completed = sum(1 for t in txs if t["status"] == "completed")
+    text = (
+        "👛 *کیف پول شما*\n\n"
+        f"💰 موجودی: *{toman(user['wallet'])}*\n"
+        f"✅ معاملات موفق: {fa_digits(completed)}\n\n"
+        "موجودی کیف پول توسط پشتیبانی پس از تسویه شارژ می‌شود."
+    )
+    try:
+        await cb.message.edit_text(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+    except Exception:
+        await cb.message.answer(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+    await cb.answer()
+
+
+@router.callback_query(F.data == "mytx")
+async def cb_mytx(cb: CallbackQuery):
+    user = await get_or_create_user(cb.from_user.id, cb.from_user.username, cb.from_user.full_name)
+    txs = await get_user_transactions(user["id"], limit=15)
+    if not txs:
+        text = "📋 شما هنوز معامله‌ای ثبت نکرده‌اید."
+    else:
+        lines = ["📋 *آخرین معاملات شما:*\n"]
+        for t in txs:
+            status = STATUS_LABELS.get(t["status"], t["status"])
+            line = f"• #{fa_digits(t['id'])} — {t['product_title']}"
+            if t["tier_label"]:
+                line += f" ({t['tier_label']})"
+            line += f"\n   {status} | نرخ: {toman(t['rate'])}"
+            lines.append(line)
+        text = "\n".join(lines)
+    try:
+        await cb.message.edit_text(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+    except Exception:
+        await cb.message.answer(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+    await cb.answer()
+
+
+@router.callback_query(F.data == "support")
+async def cb_support(cb: CallbackQuery):
+    text = await get_text("text_support")
+    try:
+        await cb.message.edit_text(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+    except Exception:
+        await cb.message.answer(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+    await cb.answer()
+
+
+@router.message(F.text.regexp(r"^/cancel"))
+async def cmd_cancel(msg: Message, state: FSMContext):
+    await state.clear()
+    await msg.answer("❌ عملیات لغو شد.", reply_markup=await main_menu(is_admin(msg.from_user.id)))
