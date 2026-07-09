@@ -18,34 +18,25 @@ from typing import Dict, List
 
 # ترتیب نمایش در منوی اصلی
 PRODUCT_ORDER: List[str] = [
-    "rub_tinkoff",
-    "rub_single",
+    "rub_c2c",
     "usd_stamped_sell",
     "usd_cash_buy",
     "toman_with_rub",
 ]
 
 DEFAULT_PRODUCTS: Dict[str, dict] = {
-    "rub_tinkoff": {
-        "title": "🇷🇺 خرید روبل تینکوف",
+    "rub_c2c": {
+        "title": "🇷🇺 نرخ خرید روبل کارت به کارت",
         "type": "rub_tiered",
         "base": "rub",
-        "column": "buy",
+        "column": "sell",   # طبق نظر مالک، مبنا نرخ «فروش» سایت است
         "style": "success",
         "tiers": [
-            {"key": "t1", "label": "زیر ۲۵ میلیون تومان", "min": 0, "max": 25_000_000, "mult": 0.98},
-            {"key": "t2", "label": "۲۵ تا ۱۵۰ میلیون تومان", "min": 25_000_000, "max": 150_000_000, "mult": 0.92},
-            {"key": "t3", "label": "بالای ۱۵۰ میلیون تومان", "min": 150_000_000, "max": 0, "mult": 0.915},
+            {"key": "single", "label": "نرخ تک‌فیش", "min": 0, "max": 0, "mult": 0.965},
+            {"key": "t1", "label": "نرخ تتری — زیر ۲۵ میلیون تومان", "min": 0, "max": 25_000_000, "mult": 0.93},
+            {"key": "t2", "label": "نرخ تتری — ۲۵ تا ۱۵۰ میلیون تومان", "min": 25_000_000, "max": 150_000_000, "mult": 0.92},
+            {"key": "t3", "label": "نرخ تتری — بالای ۱۵۰ میلیون تومان", "min": 150_000_000, "max": 0, "mult": 0.915},
         ],
-    },
-    "rub_single": {
-        "title": "🧾 خرید روبل تک‌فیشی",
-        "type": "rub_single",
-        "base": "rub",
-        "column": "buy",
-        "style": "success",
-        "label": "نرخ لحظه‌ای تک‌فیش",
-        "mult": 0.965,
     },
     "usd_stamped_sell": {
         "title": "💵 فروش دلار مهردار یا کهنه",

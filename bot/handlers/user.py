@@ -90,7 +90,10 @@ async def cb_product(cb: CallbackQuery):
         return
 
     if product["type"] == "rub_tiered":
-        text = f"{product['title']}\n\nلطفاً حجم معامله‌ی خود را انتخاب کنید:"
+        text = (
+            f"{product['title']}\n\n"
+            "لطفاً نوع فیش و حجم معامله‌ی خود را انتخاب کنید تا نرخ لحظه‌ای اعلام شود:"
+        )
         try:
             await cb.message.edit_text(text, reply_markup=tiers_kb(pid, product["tiers"]))
         except Exception:

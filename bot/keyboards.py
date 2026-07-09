@@ -60,7 +60,7 @@ def back_menu_kb() -> InlineKeyboardMarkup:
 def tiers_kb(pid: str, tiers: list) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     for t in tiers:
-        kb.row(_btn(f"نرخ لحظه‌ای — {t['label']}", f"tier:{pid}:{t['key']}", style="primary"))
+        kb.row(_btn(f"💹 {t['label']}", f"tier:{pid}:{t['key']}", style="primary"))
     kb.row(_btn("🔙 بازگشت به منوی اصلی", "menu"))
     return kb.as_markup()
 
