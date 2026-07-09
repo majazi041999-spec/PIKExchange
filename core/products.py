@@ -14,9 +14,10 @@
 همه‌ی نرخ‌ها به **تومان** ذخیره و نمایش داده می‌شوند (مقدار ریالی سایت ÷ ۱۰).
 """
 from copy import deepcopy
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # ترتیب نمایش در منوی اصلی
+# همه‌ی محصولات (برای پنل مدیریت)
 PRODUCT_ORDER: List[str] = [
     "rub_c2c",
     "usd_stamped_sell",
@@ -24,18 +25,33 @@ PRODUCT_ORDER: List[str] = [
     "toman_with_rub",
 ]
 
+# ساختار منوی اصلی کاربر — می‌تواند «محصول» مستقیم یا «دسته» (زیرمنو) باشد.
+MAIN_MENU: List[dict] = [
+    {"kind": "product", "id": "rub_c2c"},
+    {"kind": "category", "id": "usd", "title": "💵 خرید - فروش دلار",
+     "style": "primary", "members": ["usd_stamped_sell", "usd_cash_buy"]},
+    {"kind": "product", "id": "toman_with_rub"},
+]
+
+
+def get_category(cid: str) -> Optional[dict]:
+    for entry in MAIN_MENU:
+        if entry.get("kind") == "category" and entry.get("id") == cid:
+            return entry
+    return None
+
 DEFAULT_PRODUCTS: Dict[str, dict] = {
     "rub_c2c": {
-        "title": "🇷🇺 نرخ خرید روبل کارت به کارت",
+        "title": "🇷🇺 خرید روبل",
         "type": "rub_tiered",
         "base": "rub",
         "column": "sell",   # طبق نظر مالک، مبنا نرخ «فروش» سایت است
         "style": "success",
         "tiers": [
-            {"key": "single", "label": "نرخ تک‌فیش", "min": 0, "max": 0, "mult": 0.965},
-            {"key": "t1", "label": "نرخ تتری — زیر ۲۵ میلیون تومان", "min": 0, "max": 25_000_000, "mult": 0.93},
-            {"key": "t2", "label": "نرخ تتری — ۲۵ تا ۱۵۰ میلیون تومان", "min": 25_000_000, "max": 150_000_000, "mult": 0.92},
-            {"key": "t3", "label": "نرخ تتری — بالای ۱۵۰ میلیون تومان", "min": 150_000_000, "max": 0, "mult": 0.915},
+            {"key": "t1", "label": "نرخ تینکفی - زیر ۲۵ میلیون", "min": 0, "max": 25_000_000, "mult": 0.93},
+            {"key": "t2", "label": "نرخ تینکفی - ۲۵ تا ۱۵۰ میلیون", "min": 25_000_000, "max": 150_000_000, "mult": 0.92},
+            {"key": "t3", "label": "نرخ تینکفی - بالای ۱۵۰ میلیون", "min": 150_000_000, "max": 0, "mult": 0.915},
+            {"key": "single", "label": "نرخ لحظه‌ای تک‌فیش", "min": 0, "max": 0, "mult": 0.965},
         ],
     },
     "usd_stamped_sell": {

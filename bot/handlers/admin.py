@@ -19,11 +19,12 @@ from core.db import (
     transaction_stats,
     update_transaction,
 )
+from core.cards import add_card, delete_card, get_active_card, get_cards, set_active_card
 from core.products import PRODUCT_ORDER, get_product, get_products, save_product
 from core.rates import compute_simple_rate, compute_tier_rate, fetch_rates
 from core.utils import en_digits, fa_digits, num, parse_int, toman
-from bot.keyboards import back_menu_kb, contact_user_kb, styled_btn
-from bot.states import AdminEdit, AdminMessageUser, AdminWallet, Broadcast
+from bot.keyboards import back_menu_kb, color_enabled, contact_user_kb, set_color_enabled, styled_btn
+from bot.states import AddCard, AdminEdit, AdminMessageUser, AdminWallet, Broadcast
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -61,21 +62,23 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
            _b("👛 شارژ کیف پول", "adm:wallet", style="primary"))
     kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live", style="primary"),
            _b("📢 پیام همگانی", "adm:bcast", style="danger"))
+    color_txt = "🎨 دکمه‌های رنگی: روشن ✅" if color_enabled() else "🎨 دکمه‌های رنگی: خاموش ⛔️"
+    kb.row(_b(color_txt, "adm:togglecolor", style="primary"))
     kb.row(_b("🔙 بازگشت به منوی کاربری", "menu"))
     return kb.as_markup()
 
 
-async def _open(cb_or_msg, text: str, kb, edit: bool = True):
+async def _open(cb_or_msg, text: str, kb, edit: bool = True, parse_mode: str | None = "Markdown"):
     if isinstance(cb_or_msg, CallbackQuery):
         if edit:
             try:
-                await cb_or_msg.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+                await cb_or_msg.message.edit_text(text, reply_markup=kb, parse_mode=parse_mode)
                 return
             except Exception:
                 pass
-        await cb_or_msg.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+        await cb_or_msg.message.answer(text, reply_markup=kb, parse_mode=parse_mode)
     else:
-        await cb_or_msg.answer(text, reply_markup=kb, parse_mode="Markdown")
+        await cb_or_msg.answer(text, reply_markup=kb, parse_mode=parse_mode)
 
 
 @router.message(Command("admin"))
@@ -89,6 +92,15 @@ async def cb_admin(cb: CallbackQuery, state: FSMContext):
     await state.clear()
     await _open(cb, "🛠 *پنل مدیریت*\n\nیک بخش را انتخاب کنید:", admin_menu_kb())
     await cb.answer()
+
+
+@router.callback_query(F.data == "adm:togglecolor")
+async def cb_toggle_color(cb: CallbackQuery):
+    new_val = not color_enabled()
+    set_color_enabled(new_val)
+    await set_setting("buttons_colored", "1" if new_val else "0")
+    await _open(cb, "🛠 *پنل مدیریت*\n\nیک بخش را انتخاب کنید:", admin_menu_kb())
+    await cb.answer("دکمه‌ها رنگی شد ✅" if new_val else "دکمه‌ها به حالت عادی برگشت ⛔️")
 
 
 # ─────────────────────────── محصولات / نرخ‌ها ───────────────────────────
@@ -225,27 +237,106 @@ async def cb_product_edit(cb: CallbackQuery, state: FSMContext):
 # ─────────────────────────── اطلاعات کارت ───────────────────────────
 
 async def _card_view():
-    number = await get_setting("card_number", "")
-    holder = await get_setting("card_holder", "")
-    bank = await get_setting("card_bank", "")
-    text = (
-        "💳 *اطلاعات کارت واریز*\n\n"
-        f"شماره کارت: `{fa_digits(number) if number else 'ثبت نشده'}`\n"
-        f"به نام: {holder or 'ثبت نشده'}\n"
-        f"بانک: {bank or 'ثبت نشده'}"
-    )
+    """نمای مدیریت کارت‌ها (متن ساده، بدون Markdown تا کاراکترهای کارت مشکلی ایجاد نکنند)."""
+    cards = await get_cards()
+    active = await get_active_card()
+    active_id = active["id"] if active else None
+
+    lines = ["💳 مدیریت کارت‌های واریز", ""]
+    if not cards:
+        lines.append("هیچ کارتی ثبت نشده است.")
+        lines.append("با دکمه «➕ افزودن کارت» یک کارت اضافه کنید.")
+    else:
+        lines.append(f"تعداد کارت‌ها: {fa_digits(len(cards))}")
+        lines.append(f"کارت فعال: {active.get('label') if active else '—'}")
+        lines.append("")
+        lines.append("متنی که هم‌اکنون به کاربر نمایش داده می‌شود:")
+        lines.append("────────────")
+        lines.append((active or {}).get("text", "—"))
+        lines.append("────────────")
+        lines.append("برای تغییر کارت فعال، روی «انتخاب» همان کارت بزنید.")
+
     kb = InlineKeyboardBuilder()
-    kb.row(_b("✏️ شماره کارت", "set:card_number"))
-    kb.row(_b("✏️ نام صاحب کارت", "set:card_holder"), _b("✏️ بانک", "set:card_bank"))
+    for c in cards:
+        mark = "🟢" if c["id"] == active_id else "⚪️"
+        label = c.get("label") or f"کارت {c['id']}"
+        kb.row(
+            _b(f"{mark} {label}", f"cardsel:{c['id']}", style="success" if c["id"] == active_id else None),
+            _b("🗑 حذف", f"carddel:{c['id']}", style="danger"),
+        )
+    kb.row(_b("➕ افزودن کارت", "cardadd", style="success"))
     kb.row(_b("🔙 بازگشت", "admin"))
-    return text, kb.as_markup()
+    return "\n".join(lines), kb.as_markup()
 
 
 @router.callback_query(F.data == "adm:card")
 async def cb_card(cb: CallbackQuery):
     text, kb = await _card_view()
-    await _open(cb, text, kb)
+    await _open(cb, text, kb, parse_mode=None)
     await cb.answer()
+
+
+@router.callback_query(F.data.startswith("cardsel:"))
+async def cb_card_select(cb: CallbackQuery):
+    cid = int(cb.data.split(":", 1)[1])
+    await set_active_card(cid)
+    text, kb = await _card_view()
+    await _open(cb, text, kb, parse_mode=None)
+    await cb.answer("کارت فعال تغییر کرد ✅")
+
+
+@router.callback_query(F.data.startswith("carddel:"))
+async def cb_card_delete(cb: CallbackQuery):
+    cid = int(cb.data.split(":", 1)[1])
+    await delete_card(cid)
+    text, kb = await _card_view()
+    await _open(cb, text, kb, parse_mode=None)
+    await cb.answer("کارت حذف شد 🗑")
+
+
+@router.callback_query(F.data == "cardadd")
+async def cb_card_add(cb: CallbackQuery, state: FSMContext):
+    await state.set_state(AddCard.waiting_label)
+    await cb.message.answer(
+        "➕ *افزودن کارت جدید*\n\n"
+        "۱) ابتدا یک برچسب کوتاه برای این کارت بفرستید (برای تشخیص در لیست، مثلاً: «بلو - بهرام قاسمی»).\n\n"
+        "برای انصراف /cancel را بزنید.",
+        parse_mode="Markdown",
+    )
+    await cb.answer()
+
+
+@router.message(AddCard.waiting_label)
+async def card_add_label(msg: Message, state: FSMContext):
+    label = (msg.text or "").strip()
+    if not label:
+        await msg.answer("برچسب خالی است. یک نام کوتاه بفرستید.")
+        return
+    await state.update_data(label=label)
+    await state.set_state(AddCard.waiting_text)
+    await msg.answer(
+        "۲) حالا *متن کامل کارت* را همان‌طور که می‌خواهید عیناً به کاربر نمایش داده شود بفرستید.\n\n"
+        "مثال:\n"
+        "بلو بانک 💵\n\n"
+        "IR600560611828005200334501\n\n"
+        "6219861946953824\n\n"
+        "بهرام قاسمی",
+        parse_mode="Markdown",
+    )
+
+
+@router.message(AddCard.waiting_text)
+async def card_add_text(msg: Message, state: FSMContext):
+    text = msg.text or msg.caption or ""
+    if not text.strip():
+        await msg.answer("متن کارت خالی است. متن کامل کارت را بفرستید.")
+        return
+    data = await state.get_data()
+    cid = await add_card(data.get("label", "کارت"), text)
+    await state.clear()
+    await msg.answer(f"✅ کارت ثبت شد (شناسه {fa_digits(cid)}).")
+    view, kb = await _card_view()
+    await _open(msg, view, kb, parse_mode=None)
 
 
 # ─────────────────────────── متن‌ها ───────────────────────────
@@ -262,9 +353,6 @@ async def cb_texts(cb: CallbackQuery):
 
 
 SET_PROMPTS = {
-    "card_number": "شماره کارت را بفرستید (۱۶ رقم):",
-    "card_holder": "نام کامل صاحب کارت را بفرستید:",
-    "card_bank": "نام بانک را بفرستید:",
     "text_rules": "متن جدید «قوانین معاملات» را بفرستید:",
     "text_welcome": "متن جدید «خوش‌آمد» را بفرستید:",
     "text_support": "متن جدید «پشتیبانی» را بفرستید:",
@@ -277,9 +365,8 @@ async def cb_set(cb: CallbackQuery, state: FSMContext):
     if key not in SET_PROMPTS:
         await cb.answer("گزینه نامعتبر.", show_alert=True)
         return
-    ret = "card" if key.startswith("card_") else "texts"
     await state.set_state(AdminEdit.waiting_value)
-    await state.update_data(save="setting", key=key, vtype="text", ret=ret)
+    await state.update_data(save="setting", key=key, vtype="text", ret="texts")
     await cb.message.answer(f"✏️ {SET_PROMPTS[key]}\n\nبرای انصراف /cancel را بزنید.")
     await cb.answer()
 
@@ -310,12 +397,7 @@ async def on_value(msg: Message, state: FSMContext):
     if data.get("save") == "setting":
         await set_setting(data["key"], value)
         await state.clear()
-        await msg.answer("✅ ذخیره شد.")
-        if data.get("ret") == "card":
-            text, kb = await _card_view()
-            await _open(msg, text, kb, edit=False)
-        else:
-            await msg.answer("برای بازگشت به پنل /admin را بزنید.")
+        await msg.answer("✅ ذخیره شد.\nبرای بازگشت به پنل /admin را بزنید.")
         return
 
     # save == product

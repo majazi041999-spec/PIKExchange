@@ -15,7 +15,8 @@ from core.db import (
     get_user_transactions,
     update_transaction,
 )
-from core.products import get_product
+from core.cards import get_active_card
+from core.products import get_category, get_product
 from core.rates import compute_simple_rate, compute_tier_rate
 from core.texts import get_text
 from core.utils import fa_digits, toman
@@ -23,6 +24,7 @@ from bot.keyboards import (
     agree_kb,
     back_menu_kb,
     card_kb,
+    category_kb,
     admin_review_kb,
     main_menu,
     tiers_kb,
@@ -79,6 +81,22 @@ async def _rate_block(product: dict, rate: int, tier_label: str = "") -> str:
         f"⏱ اعتبار نرخ: {fa_digits(RATE_VALIDITY_MINUTES)} دقیقه\n\n"
         f"{rules}"
     )
+
+
+@router.callback_query(F.data.startswith("cat:"))
+async def cb_category(cb: CallbackQuery):
+    cid = cb.data.split(":", 1)[1]
+    cat = get_category(cid)
+    if not cat:
+        await cb.answer("این دسته در دسترس نیست.", show_alert=True)
+        return
+    text = f"{cat['title']}\n\nلطفاً یکی از گزینه‌ها را انتخاب کنید:"
+    kb = await category_kb(cid)
+    try:
+        await cb.message.edit_text(text, reply_markup=kb)
+    except Exception:
+        await cb.message.answer(text, reply_markup=kb)
+    await cb.answer()
 
 
 @router.callback_query(F.data.startswith("p:"))
@@ -151,12 +169,9 @@ async def cb_tier(cb: CallbackQuery):
 
 # ─────────────────────────── موافقت + دریافت کارت ───────────────────────────
 
-async def _card_text(product: dict, rate: int, tier_label: str, tx_id: int) -> str:
-    number = await get_setting("card_number", "")
-    holder = await get_setting("card_holder", "")
-    bank = await get_setting("card_bank", "")
+async def _confirm_text(product: dict, rate: int, tier_label: str, tx_id: int) -> str:
+    """پیام اول: تأیید موافقت + نرخ + راهنما (اطلاعات کارت در پیام بعدی می‌آید)."""
     unit = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
-
     lines = [
         "✅ *موافقت شما با قوانین ثبت شد.*",
         "",
@@ -167,17 +182,8 @@ async def _card_text(product: dict, rate: int, tier_label: str, tx_id: int) -> s
         lines.append(f"📊 {tier_label}")
     lines.append(f"💱 نرخ توافقی هر {unit}: *{toman(rate)}*")
     lines.append("")
-    if number:
-        lines.append("💳 *اطلاعات کارت جهت واریز:*")
-        lines.append(f"شماره کارت: `{fa_digits(number)}`")
-        if holder:
-            lines.append(f"به نام: {holder}")
-        if bank:
-            lines.append(f"بانک: {bank}")
-    else:
-        lines.append("💳 اطلاعات کارت هنوز ثبت نشده است؛ لطفاً با پشتیبانی هماهنگ کنید.")
-    lines.append("")
-    lines.append("پس از واریز، دکمه‌ی «📤 ارسال فیش واریز» را بزنید و تصویر فیش را ارسال کنید.")
+    lines.append("💳 اطلاعات کارت واریز را در *پیام بعدی* برای شما ارسال می‌کنیم.")
+    lines.append("پس از واریز، دکمه‌ی «📤 ارسال فیش واریز» را بزنید.")
     return "\n".join(lines)
 
 
@@ -219,11 +225,23 @@ async def cb_agree(cb: CallbackQuery):
         tier_label=tier_label,
         unit=unit,
     )
-    text = await _card_text(product, rate, tier_label, tx_id)
+    # پیام اول: تأیید + نرخ
+    confirm = await _confirm_text(product, rate, tier_label, tx_id)
     try:
-        await cb.message.edit_text(text, reply_markup=card_kb(tx_id), parse_mode="Markdown")
+        await cb.message.edit_text(confirm, parse_mode="Markdown")
     except Exception:
-        await cb.message.answer(text, reply_markup=card_kb(tx_id), parse_mode="Markdown")
+        await cb.message.answer(confirm, parse_mode="Markdown")
+
+    # پیام دوم: متن کامل کارت فعال (تمیز و قابل‌کپی) + دکمه ارسال فیش
+    card = await get_active_card()
+    if card and (card.get("text") or "").strip():
+        await cb.message.answer(card["text"], reply_markup=card_kb(tx_id), parse_mode=None)
+    else:
+        await cb.message.answer(
+            "💳 اطلاعات کارت هنوز ثبت نشده است. لطفاً برای دریافت شماره کارت با پشتیبانی هماهنگ کنید،\n"
+            "و پس از واریز از همین‌جا فیش را ارسال نمایید.",
+            reply_markup=card_kb(tx_id),
+        )
     await cb.answer()
 
 

@@ -1,26 +1,38 @@
-"""کیبوردهای اینلاین ربات (با دکمه‌های رنگی تلگرام).
+"""کیبوردهای اینلاین ربات (با دکمه‌های رنگی اختیاری تلگرام).
 
 رنگ دکمه‌ها با پارامتر ``style`` تلگرام ساخته می‌شود:
-    • ``primary`` → آبی
-    • ``success`` → سبز
-    • ``danger``  → قرمز
-اگر نسخه‌ی کتابخانه/سرور این فیلد را پشتیبانی نکند، به‌صورت خودکار بدون رنگ نمایش داده می‌شود.
+    • ``primary`` → آبی · ``success`` → سبز · ``danger`` → قرمز
+
+رنگی‌بودن دکمه‌ها با یک کلید سراسری کنترل می‌شود (پیش‌فرض: خاموش). ادمین می‌تواند
+از پنل آن را روشن/خاموش کند؛ مقدار در دیتابیس (کلید ``buttons_colored``) ذخیره می‌شود.
 """
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from core.products import PRODUCT_ORDER
+from core.products import MAIN_MENU
+
+# وضعیت رنگی‌بودن دکمه‌ها (در startup از دیتابیس بارگذاری می‌شود)
+_COLOR_ENABLED = False
+
+
+def set_color_enabled(value: bool) -> None:
+    global _COLOR_ENABLED
+    _COLOR_ENABLED = bool(value)
+
+
+def color_enabled() -> bool:
+    return _COLOR_ENABLED
 
 
 def styled_btn(text: str, data: str | None = None, style: str | None = None,
                url: str | None = None) -> InlineKeyboardButton:
-    """یک دکمه‌ی اینلاین با رنگ (در صورت پشتیبانی)."""
+    """دکمه‌ی اینلاین؛ رنگ فقط وقتی حالت رنگی روشن باشد و نسخه پشتیبانی کند اعمال می‌شود."""
     kwargs = {"text": text}
     if url:
         kwargs["url"] = url
     else:
         kwargs["callback_data"] = data
-    if style:
+    if style and _COLOR_ENABLED:
         try:
             return InlineKeyboardButton(**kwargs, style=style)
         except Exception:
@@ -28,7 +40,6 @@ def styled_btn(text: str, data: str | None = None, style: str | None = None,
     return InlineKeyboardButton(**kwargs)
 
 
-# نام کوتاه برای استفاده‌ی داخلی
 _btn = styled_btn
 
 
@@ -37,10 +48,13 @@ async def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
 
     products = await get_products()
     kb = InlineKeyboardBuilder()
-    for pid in PRODUCT_ORDER:
-        p = products.get(pid)
-        if p:
-            kb.row(_btn(p["title"], f"p:{pid}", style=p.get("style", "primary")))
+    for entry in MAIN_MENU:
+        if entry.get("kind") == "category":
+            kb.row(_btn(entry["title"], f"cat:{entry['id']}", style=entry.get("style", "primary")))
+        else:
+            p = products.get(entry["id"])
+            if p:
+                kb.row(_btn(p["title"], f"p:{entry['id']}", style=p.get("style", "primary")))
     kb.row(
         _btn("👛 کیف پول", "wallet", style="success"),
         _btn("📋 معاملات من", "mytx", style="primary"),
@@ -48,6 +62,22 @@ async def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
     kb.row(_btn("🆘 پشتیبانی و ارتباط با ما", "support", style="primary"))
     if is_admin:
         kb.row(_btn("⚙️ پنل مدیریت", "admin", style="danger"))
+    return kb.as_markup()
+
+
+async def category_kb(cid: str) -> InlineKeyboardMarkup:
+    """زیرمنوی یک دسته: فهرست محصولات عضو."""
+    from core.products import get_category, get_products
+
+    cat = get_category(cid)
+    products = await get_products()
+    kb = InlineKeyboardBuilder()
+    if cat:
+        for pid in cat.get("members", []):
+            p = products.get(pid)
+            if p:
+                kb.row(_btn(p["title"], f"p:{pid}", style=p.get("style", "primary")))
+    kb.row(_btn("🔙 بازگشت به منوی اصلی", "menu"))
     return kb.as_markup()
 
 

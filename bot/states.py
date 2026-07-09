@@ -22,3 +22,9 @@ class AdminWallet(StatesGroup):
 class AdminMessageUser(StatesGroup):
     """ارسال پیام مستقیم ادمین به یک کاربر از طریق ربات."""
     waiting_text = State()
+
+
+class AddCard(StatesGroup):
+    """افزودن کارت جدید: برچسب (نام/بانک) سپس متن کامل کارت."""
+    waiting_label = State()
+    waiting_text = State()
