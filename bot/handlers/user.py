@@ -19,7 +19,7 @@ from core.cards import get_active_card
 from core.products import get_category, get_product
 from core.rates import compute_simple_rate, compute_tier_rate
 from core.texts import get_text
-from core.utils import fa_digits, toman
+from core.utils import fa_digits, money, toman
 from bot.keyboards import (
     agree_kb,
     back_menu_kb,
@@ -71,13 +71,14 @@ async def cb_menu(cb: CallbackQuery, state: FSMContext):
 
 async def _rate_block(product: dict, rate: int, tier_label: str = "") -> str:
     unit = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
+    currency = product.get("currency", "تومان")
     head = product["title"]
     if tier_label:
         head += f"\n📊 {tier_label}"
     rules = await get_text("text_rules")
     return (
         f"{head}\n\n"
-        f"💱 نرخ لحظه‌ای هر {unit}: *{toman(rate)}*\n"
+        f"💱 نرخ لحظه‌ای هر {unit}: *{money(rate, currency)}*\n"
         f"⏱ اعتبار نرخ: {fa_digits(RATE_VALIDITY_MINUTES)} دقیقه\n\n"
         f"{rules}"
     )
@@ -172,6 +173,7 @@ async def cb_tier(cb: CallbackQuery):
 async def _confirm_text(product: dict, rate: int, tier_label: str, tx_id: int) -> str:
     """پیام اول: تأیید موافقت + نرخ + راهنما (اطلاعات کارت در پیام بعدی می‌آید)."""
     unit = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
+    currency = product.get("currency", "تومان")
     lines = [
         "✅ *موافقت شما با قوانین ثبت شد.*",
         "",
@@ -180,7 +182,7 @@ async def _confirm_text(product: dict, rate: int, tier_label: str, tx_id: int) -
     ]
     if tier_label:
         lines.append(f"📊 {tier_label}")
-    lines.append(f"💱 نرخ توافقی هر {unit}: *{toman(rate)}*")
+    lines.append(f"💱 نرخ توافقی هر {unit}: *{money(rate, currency)}*")
     lines.append("")
     lines.append("💳 اطلاعات کارت واریز را در *پیام بعدی* برای شما ارسال می‌کنیم.")
     lines.append("پس از واریز، دکمه‌ی «📤 ارسال فیش واریز» را بزنید.")
@@ -224,6 +226,7 @@ async def cb_agree(cb: CallbackQuery):
         tier_key=tier_key if tier_key != "-" else "",
         tier_label=tier_label,
         unit=unit,
+        currency=product.get("currency", "تومان"),
     )
     # پیام اول: تأیید + نرخ
     confirm = await _confirm_text(product, rate, tier_label, tx_id)
@@ -306,7 +309,7 @@ async def _notify_admins_receipt(msg: Message, tx: dict, file_id: str, caption: 
         f"🧾 فیش جدید — معامله {fa_digits(tx['id'])}\n\n"
         f"🔸 {tx['product_title']}\n"
         + (f"📊 {tx['tier_label']}\n" if tx["tier_label"] else "")
-        + f"💱 نرخ: {toman(tx['rate'])} به ازای هر {tx['unit']}\n"
+        + f"💱 نرخ: {money(tx['rate'], tx.get('currency', 'تومان'))} به ازای هر {tx['unit']}\n"
         f"👤 کاربر: {msg.from_user.full_name} ({uname})\n"
         f"🆔 آیدی: {fa_digits(msg.from_user.id)}\n"
         + (f"📝 توضیح کاربر: {caption[:400]}\n" if caption else "")
@@ -356,7 +359,7 @@ async def cb_mytx(cb: CallbackQuery):
             line = f"• #{fa_digits(t['id'])} — {t['product_title']}"
             if t["tier_label"]:
                 line += f" ({t['tier_label']})"
-            line += f"\n   {status} | نرخ: {toman(t['rate'])}"
+            line += f"\n   {status} | نرخ: {money(t['rate'], t.get('currency', 'تومان'))}"
             lines.append(line)
         text = "\n".join(lines)
     try:

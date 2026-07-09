@@ -31,12 +31,13 @@ logging.getLogger("aiogram").setLevel(logging.WARNING)
 
 
 async def _rate_refresh_worker():
-    """هر چند دقیقه نرخ سایت را در پس‌زمینه تازه نگه می‌دارد."""
-    from core.rates import fetch_rates
+    """هر چند دقیقه نرخ سایت و نرخ دلار/روبل بانک روسیه را تازه نگه می‌دارد."""
+    from core.rates import fetch_rates, fetch_usd_rub
 
     while True:
         try:
             await fetch_rates(force=True)
+            await fetch_usd_rub(force=True)
         except Exception as e:
             logger.warning("rate refresh failed: %s", e)
         await asyncio.sleep(120)

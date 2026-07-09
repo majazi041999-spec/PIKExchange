@@ -105,6 +105,57 @@ async def site_base_toman(product: dict) -> Optional[float]:
     return value if value > 0 else None
 
 
+# ─────────────────────────── نرخ دلار به روبل (بانک روسیه) ───────────────────────────
+# سایت خود اسبربانک از خارج روسیه API قابل‌دسترسی ندارد؛ بانک مرکزی روسیه (CBR) نرخ
+# رسمی و پایدار می‌دهد و مبنای همان نرخی است که بانک‌ها (از جمله اسبر) رویش اسپرد می‌گذارند.
+# اگر ادمین نرخ دستی (نرخ دقیق اسبر) را وارد کند، همان اولویت دارد.
+_USD_RUB_URLS = [
+    "https://www.cbr-xml-daily.ru/daily_json.js",
+]
+_USD_RUB_CACHE: float = 0.0
+_USD_RUB_TS: float = 0.0
+USD_RUB_TTL = 600  # ۱۰ دقیقه
+
+
+async def fetch_usd_rub(force: bool = False) -> Optional[float]:
+    """نرخ دلار به روبل (روبل به‌ازای هر دلار) را از بانک مرکزی روسیه برمی‌گرداند."""
+    global _USD_RUB_CACHE, _USD_RUB_TS
+    now = time.time()
+    if not force and _USD_RUB_CACHE and (now - _USD_RUB_TS) < USD_RUB_TTL:
+        return _USD_RUB_CACHE
+
+    for url in _USD_RUB_URLS:
+        try:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_HEADERS) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+            usd = data.get("Valute", {}).get("USD", {})
+            value = float(usd.get("Value") or 0)
+            nominal = float(usd.get("Nominal") or 1) or 1
+            rub_per_usd = value / nominal
+            if rub_per_usd > 0:
+                _USD_RUB_CACHE = rub_per_usd
+                _USD_RUB_TS = now
+                logger.info("usd/rub updated | %.2f RUB per USD", rub_per_usd)
+                return rub_per_usd
+        except Exception as e:
+            logger.warning("fetch usd/rub failed (%s): %s", url, e)
+    return _USD_RUB_CACHE or None
+
+
+async def site_base_value(product: dict) -> Optional[float]:
+    """مقدار مبنای یک محصول ساده را برمی‌گرداند (قبل از اعمال ضریب و آفست).
+
+    * base = ``rub``/``usd`` → نرخ تومانی همان ارز از alanchand.
+    * base = ``usd_rub``     → نرخ دلار به روبل (روبل/دلار) از بانک روسیه.
+    """
+    base = product.get("base", "rub")
+    if base == "usd_rub":
+        return await fetch_usd_rub()
+    return await site_base_toman(product)
+
+
 async def compute_tier_rate(product: dict, tier: dict) -> Optional[int]:
     """نرخ یک پله از محصول پله‌ای را حساب می‌کند (تومان به ازای هر واحد)."""
     base = await site_base_toman(product)
@@ -114,16 +165,23 @@ async def compute_tier_rate(product: dict, tier: dict) -> Optional[int]:
 
 
 async def compute_simple_rate(product: dict) -> Optional[int]:
-    """نرخ یک محصول ساده را حساب می‌کند.
+    """نرخ نهایی یک محصول ساده = مبنا × ضریب + آفست.
 
-    اگر ``mode == manual`` و ``manual > 0`` باشد همان نرخ دستی، وگرنه فرمول سایت.
+    «مبنا» نرخ دستی است (اگر mode=manual و manual>0) وگرنه مقدار مبنای منبع.
+    آفست یک عدد ثابت است که به نتیجه اضافه/کم می‌شود (مثلاً ‎-۳۰۰‎ یا ‎-۸‎).
     """
-    mode = product.get("mode", "formula")
+    mult = float(product.get("mult", 1.0))
+    offset = float(product.get("offset", 0) or 0)
     manual = int(product.get("manual", 0) or 0)
+    mode = product.get("mode", "formula")
+
     if mode == "manual" and manual > 0:
-        return manual
-    base = await site_base_toman(product)
-    if base is None:
-        # اگر فرمول ممکن نبود ولی نرخ دستی داریم، از همان استفاده کن
-        return manual or None
-    return int(round(base * float(product.get("mult", 1.0))))
+        reference = float(manual)
+    else:
+        reference = await site_base_value(product)
+        if reference is None:
+            reference = float(manual) if manual > 0 else None
+
+    if reference is None:
+        return None
+    return int(round(reference * mult + offset))

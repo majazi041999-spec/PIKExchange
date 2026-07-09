@@ -39,3 +39,8 @@ def num(amount) -> str:
     except (TypeError, ValueError):
         n = 0
     return fa_digits(f"{n:,}")
+
+
+def money(amount, currency: str = "تومان") -> str:
+    """عدد + واحد دلخواه (تومان/روبل/…)."""
+    return f"{num(amount)} {currency or 'تومان'}"

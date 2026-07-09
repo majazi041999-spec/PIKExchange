@@ -69,6 +69,12 @@ async def init_db() -> None:
             """
         )
         await conn.commit()
+        # migration: ستون واحد پول تراکنش (تومان/روبل)
+        try:
+            await conn.execute("ALTER TABLE transactions ADD COLUMN currency TEXT NOT NULL DEFAULT 'تومان'")
+            await conn.commit()
+        except Exception:
+            pass
     finally:
         await conn.close()
 
@@ -214,16 +220,17 @@ async def create_transaction(
     tier_key: str = "",
     tier_label: str = "",
     unit: str = "",
+    currency: str = "تومان",
 ) -> int:
     conn = await _connect()
     try:
         cur = await conn.execute(
             """INSERT INTO transactions
                (user_id, telegram_id, product_id, product_title, tier_key, tier_label,
-                unit, rate, status, created_at, updated_at)
-               VALUES(?,?,?,?,?,?,?,?, 'awaiting_receipt', ?, ?)""",
+                unit, rate, currency, status, created_at, updated_at)
+               VALUES(?,?,?,?,?,?,?,?,?, 'awaiting_receipt', ?, ?)""",
             (user_id, telegram_id, product_id, product_title, tier_key, tier_label,
-             unit, rate, _now(), _now()),
+             unit, rate, currency, _now(), _now()),
         )
         await conn.commit()
         return cur.lastrowid

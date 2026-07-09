@@ -55,15 +55,18 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         ],
     },
     "usd_stamped_sell": {
+        # نرخ = دلار→روبل بانک روسیه (CBR) منهای ۸ روبل. نتیجه به «روبل» است.
+        # اگر ادمین نرخ دستی (عین اسبر) وارد کند، همان مبنا می‌شود.
         "title": "💵 فروش دلار مهردار یا کهنه",
         "type": "simple",
-        "base": "usd",
-        "column": "sell",
+        "base": "usd_rub",     # دلار به روبل از بانک روسیه
         "style": "primary",
-        "mode": "manual",   # پیش‌فرض دستی؛ اگر manual=0 باشد از فرمول استفاده می‌شود
+        "mode": "manual",      # اگر manual=0 باشد از منبع خودکار استفاده می‌شود
         "mult": 1.0,
+        "offset": -8,          # ۸ روبل زیر نرخ بانک
         "manual": 0,
         "unit": "دلار",
+        "currency": "روبل",    # نتیجه به روبل نمایش داده می‌شود
     },
     "usd_cash_buy": {
         "title": "💵 خرید دلار نقدی",
@@ -73,10 +76,13 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         "style": "primary",
         "mode": "formula",
         "mult": 1.0,
+        "offset": 0,
         "manual": 0,
         "unit": "دلار",
+        "currency": "تومان",
     },
     "toman_with_rub": {
+        # نرخ = نرخ فروش روبل سایت منهای ۳۰۰ تومان.
         "title": "💰 خرید تومان با روبل",
         "type": "simple",
         "base": "rub",
@@ -84,8 +90,10 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         "style": "primary",
         "mode": "formula",
         "mult": 1.0,
+        "offset": -300,        # ۳۰۰ تومان کمتر از نرخ سایت
         "manual": 0,
         "unit": "روبل",
+        "currency": "تومان",
     },
 }
 

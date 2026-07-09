@@ -22,7 +22,7 @@ from core.db import (
 from core.cards import add_card, delete_card, get_active_card, get_cards, set_active_card
 from core.products import PRODUCT_ORDER, get_product, get_products, save_product
 from core.rates import compute_simple_rate, compute_tier_rate, fetch_rates
-from core.utils import en_digits, fa_digits, num, parse_int, toman
+from core.utils import en_digits, fa_digits, money, num, parse_int, toman
 from bot.keyboards import back_menu_kb, color_enabled, contact_user_kb, set_color_enabled, styled_btn
 from bot.states import AddCard, AdminEdit, AdminMessageUser, AdminWallet, Broadcast
 
@@ -125,9 +125,14 @@ async def _product_view(pid: str):
         return "محصول یافت نشد.", back_menu_kb()
 
     col_fa = {"buy": "خرید", "sell": "فروش", "avg": "میانگین"}
-    base_fa = {"rub": "روبل", "usd": "دلار"}
+    base_fa = {"rub": "روبل (سایت)", "usd": "دلار (سایت)", "usd_rub": "دلار→روبل (بانک روسیه)"}
+    currency = p.get("currency", "تومان")
     lines = [f"⚙️ *ویرایش:* {p['title']}", ""]
-    lines.append(f"منبع نرخ سایت: *{base_fa.get(p.get('base'),'?')}* — ستون *{col_fa.get(p.get('column','buy'))}*")
+    if p.get("base") == "usd_rub":
+        lines.append(f"منبع نرخ: *{base_fa.get('usd_rub')}*")
+    else:
+        lines.append(f"منبع نرخ سایت: *{base_fa.get(p.get('base'),'?')}* — ستون *{col_fa.get(p.get('column','buy'))}*")
+    lines.append(f"واحد نمایش نتیجه: *{currency}*")
 
     kb = InlineKeyboardBuilder()
 
@@ -154,25 +159,29 @@ async def _product_view(pid: str):
     else:  # simple
         mode = p.get("mode", "formula")
         manual = int(p.get("manual", 0) or 0)
-        lines.append(f"حالت: *{'دستی' if mode=='manual' else 'فرمولی (نرخ سایت × ضریب)'}*")
-        lines.append(f"نرخ دستی: *{toman(manual) if manual else 'ثبت نشده'}*")
-        lines.append(f"ضریب فرمول: *{fa_digits(p.get('mult',1))}*")
-        kb.row(_b(f"🔁 تغییر حالت به {'فرمولی' if mode=='manual' else 'دستی'}", f"pe:{pid}:mode:-"))
-        kb.row(_b("💵 نرخ دستی", f"pe:{pid}:manual:-"), _b("⚖️ ضریب", f"pe:{pid}:mult:-"))
+        offset = p.get("offset", 0) or 0
+        lines.append(f"حالت: *{'دستی' if mode=='manual' else 'خودکار (مبنا × ضریب + آفست)'}*")
+        lines.append(f"نرخ/مبنای دستی: *{money(manual, currency) if manual else 'ثبت نشده'}*")
+        lines.append(f"ضریب: *{fa_digits(p.get('mult',1))}*")
+        lines.append(f"آفست (± ثابت): *{fa_digits(offset)} {currency}*")
+        kb.row(_b(f"🔁 تغییر حالت به {'خودکار' if mode=='manual' else 'دستی'}", f"pe:{pid}:mode:-"))
+        kb.row(_b("💵 نرخ/مبنای دستی", f"pe:{pid}:manual:-"), _b("⚖️ ضریب", f"pe:{pid}:mult:-"))
+        kb.row(_b("➕➖ آفست", f"pe:{pid}:offset:-"))
 
-    kb.row(_b("🔁 تغییر ستون سایت", f"pe:{pid}:col:-"))
+    if p.get("base") != "usd_rub":
+        kb.row(_b("🔁 تغییر ستون سایت", f"pe:{pid}:col:-"))
 
     # پیش‌نمایش نرخ فعلی
     try:
         if p["type"] == "rub_tiered":
             preview = await compute_tier_rate(p, p["tiers"][0])
-            lines.append(f"\n📈 پیش‌نمایش پله اول: *{toman(preview) if preview else 'ناموجود'}*")
+            lines.append(f"\n📈 پیش‌نمایش پله اول: *{money(preview, currency) if preview else 'ناموجود'}*")
         elif p["type"] == "rub_single":
             preview = await compute_tier_rate(p, {"mult": p.get("mult", 1.0)})
-            lines.append(f"\n📈 پیش‌نمایش نرخ: *{toman(preview) if preview else 'ناموجود'}*")
+            lines.append(f"\n📈 پیش‌نمایش نرخ: *{money(preview, currency) if preview else 'ناموجود'}*")
         else:
             preview = await compute_simple_rate(p)
-            lines.append(f"\n📈 پیش‌نمایش نرخ: *{toman(preview) if preview else 'ناموجود'}*")
+            lines.append(f"\n📈 پیش‌نمایش نرخ: *{money(preview, currency) if preview else 'ناموجود'}*")
     except Exception:
         pass
 
@@ -220,9 +229,10 @@ async def cb_product_edit(cb: CallbackQuery, state: FSMContext):
         "tmin": ("حداقل مبلغ این پله (تومان) را بفرستید (0 برای بدون حد پایین):", "int"),
         "tmax": ("حداکثر مبلغ این پله (تومان) را بفرستید (0 برای بی‌نهایت):", "int"),
         "tlbl": ("برچسب جدید این پله را بفرستید:", "text"),
-        "mult": ("ضریب جدید را بفرستید (مثلاً 0.965):", "float"),
+        "mult": ("ضریب جدید را بفرستید (مثلاً 0.965 یا 1):", "float"),
         "lbl": ("برچسب جدید را بفرستید:", "text"),
-        "manual": ("نرخ دستی (تومان به ازای هر واحد) را بفرستید:", "int"),
+        "manual": ("نرخ/مبنای دستی (به ازای هر واحد) را بفرستید (0 برای استفاده از منبع خودکار):", "int"),
+        "offset": ("آفست را بفرستید — عدد ثابتی که به نرخ اضافه/کم می‌شود (مثلاً -300 یا -8 یا 0):", "int"),
     }
     if field not in prompts:
         await cb.answer("گزینه نامعتبر.", show_alert=True)
@@ -430,6 +440,8 @@ async def on_value(msg: Message, state: FSMContext):
         p["label"] = value
     elif field == "manual":
         p["manual"] = value
+    elif field == "offset":
+        p["offset"] = value
 
     await save_product(pid, p)
     await state.clear()
@@ -463,12 +475,12 @@ async def cb_tx(cb: CallbackQuery):
     if pending:
         lines.append("\n*در انتظار بررسی:*")
         for t in pending:
-            lines.append(f"• #{fa_digits(t['id'])} — {t['product_title']} — {toman(t['rate'])}")
+            lines.append(f"• #{fa_digits(t['id'])} — {t['product_title']} — {money(t['rate'], t.get('currency','تومان'))}")
     lines.append("\n*آخرین معاملات:*")
     for t in recent:
         lines.append(
             f"• #{fa_digits(t['id'])} {STATUS_LABELS.get(t['status'], t['status'])} — "
-            f"{t['product_title']} — {toman(t['rate'])}"
+            f"{t['product_title']} — {money(t['rate'], t.get('currency','تومان'))}"
         )
 
     kb = InlineKeyboardBuilder()
@@ -501,7 +513,7 @@ async def _finalize_tx(cb: CallbackQuery, tx_id: int, approve: bool):
                 f"🧾 معامله شماره {fa_digits(tx_id)} تأیید شد و نرخ شما قفل گردید.\n"
                 f"🔸 {tx['product_title']}\n"
                 + (f"📊 {tx['tier_label']}\n" if tx.get("tier_label") else "")
-                + f"💱 نرخ نهایی: {toman(tx['rate'])} به ازای هر {tx.get('unit') or ''}\n\n"
+                + f"💱 نرخ نهایی: {money(tx['rate'], tx.get('currency','تومان'))} به ازای هر {tx.get('unit') or ''}\n\n"
                 "تسویه‌حساب حداکثر تا ۲۴ ساعت انجام می‌شود. سپاس از اعتماد شما 🙏",
                 parse_mode="Markdown",
             )
@@ -651,12 +663,16 @@ async def wallet_amount(msg: Message, state: FSMContext):
 @router.callback_query(F.data == "adm:live")
 async def cb_live(cb: CallbackQuery):
     await cb.answer("در حال دریافت…")
+    from core.rates import fetch_usd_rub
     rates = await fetch_rates(force=True)
+    usd_rub = await fetch_usd_rub(force=True)
     lines = ["📈 *نرخ لحظه‌ای سایت (تومان)*", ""]
     if rates.get("rub"):
         lines.append(f"روبل — خرید: {toman(rates['rub']['buy'])} | فروش: {toman(rates['rub']['sell'])}")
     if rates.get("usd"):
         lines.append(f"دلار — خرید: {toman(rates['usd']['buy'])} | فروش: {toman(rates['usd']['sell'])}")
+    if usd_rub:
+        lines.append(f"دلار به روبل (بانک روسیه): {fa_digits(round(usd_rub, 2))} روبل")
     if not rates:
         lines.append("⚠️ دریافت نرخ از سایت ناموفق بود.")
     lines.append("\n*نرخ محاسبه‌شده محصولات:*")
@@ -677,7 +693,8 @@ async def cb_live(cb: CallbackQuery):
                 extra = ""
         except Exception:
             r, extra = None, ""
-        lines.append(f"• {p['title']}{extra}: {toman(r) if r else 'ناموجود'}")
+        cur = p.get("currency", "تومان")
+        lines.append(f"• {p['title']}{extra}: {money(r, cur) if r else 'ناموجود'}")
 
     kb = InlineKeyboardBuilder()
     kb.row(_b("🔄 بروزرسانی", "adm:live", style="success"), _b("🔙 بازگشت", "admin"))
