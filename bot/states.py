@@ -17,3 +17,8 @@ class AdminEdit(StatesGroup):
 class AdminWallet(StatesGroup):
     waiting_user = State()
     waiting_amount = State()
+
+
+class AdminMessageUser(StatesGroup):
+    """ارسال پیام مستقیم ادمین به یک کاربر از طریق ربات."""
+    waiting_text = State()

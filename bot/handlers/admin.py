@@ -22,8 +22,8 @@ from core.db import (
 from core.products import PRODUCT_ORDER, get_product, get_products, save_product
 from core.rates import compute_simple_rate, compute_tier_rate, fetch_rates
 from core.utils import en_digits, fa_digits, num, parse_int, toman
-from bot.keyboards import back_menu_kb
-from bot.states import AdminEdit, AdminWallet, Broadcast
+from bot.keyboards import back_menu_kb, contact_user_kb, styled_btn
+from bot.states import AdminEdit, AdminMessageUser, AdminWallet, Broadcast
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -42,8 +42,8 @@ router.message.filter(IsAdmin())
 router.callback_query.filter(IsAdmin())
 
 
-def _b(text: str, data: str) -> InlineKeyboardButton:
-    return InlineKeyboardButton(text=text, callback_data=data)
+def _b(text: str, data: str, style: str | None = None) -> InlineKeyboardButton:
+    return styled_btn(text, data, style=style)
 
 
 def _parse_float(text) -> float:
@@ -54,10 +54,13 @@ def _parse_float(text) -> float:
 
 def admin_menu_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.row(_b("💱 نرخ‌ها و محصولات", "adm:products"))
-    kb.row(_b("💳 اطلاعات کارت", "adm:card"), _b("📝 متن‌ها", "adm:texts"))
-    kb.row(_b("📊 تراکنش‌ها", "adm:tx"), _b("👛 شارژ کیف پول", "adm:wallet"))
-    kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live"), _b("📢 پیام همگانی", "adm:bcast"))
+    kb.row(_b("💱 نرخ‌ها و محصولات", "adm:products", style="success"))
+    kb.row(_b("💳 اطلاعات کارت", "adm:card", style="primary"),
+           _b("📝 متن‌ها", "adm:texts", style="primary"))
+    kb.row(_b("📊 تراکنش‌ها", "adm:tx", style="success"),
+           _b("👛 شارژ کیف پول", "adm:wallet", style="primary"))
+    kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live", style="primary"),
+           _b("📢 پیام همگانی", "adm:bcast", style="danger"))
     kb.row(_b("🔙 بازگشت به منوی کاربری", "menu"))
     return kb.as_markup()
 
@@ -97,7 +100,7 @@ async def cb_products(cb: CallbackQuery):
     for pid in PRODUCT_ORDER:
         p = products.get(pid)
         if p:
-            kb.row(_b(p["title"], f"padm:{pid}"))
+            kb.row(_b(p["title"], f"padm:{pid}", style=p.get("style", "primary")))
     kb.row(_b("🔙 بازگشت", "admin"))
     await _open(cb, "💱 *مدیریت محصولات و نرخ‌ها*\n\nمحصول موردنظر را برای ویرایش انتخاب کنید:",
                 kb.as_markup())
@@ -389,8 +392,8 @@ async def cb_tx(cb: CallbackQuery):
     kb = InlineKeyboardBuilder()
     for t in pending[:6]:
         kb.row(
-            _b(f"✅ تأیید #{t['id']}", f"txok:{t['id']}"),
-            _b(f"❌ رد #{t['id']}", f"txno:{t['id']}"),
+            _b(f"✅ تأیید #{t['id']}", f"txok:{t['id']}", style="success"),
+            _b(f"❌ رد #{t['id']}", f"txno:{t['id']}", style="danger"),
         )
     kb.row(_b("🔙 بازگشت", "admin"))
     await _open(cb, "\n".join(lines), kb.as_markup())
@@ -412,18 +415,23 @@ async def _finalize_tx(cb: CallbackQuery, tx_id: int, approve: bool):
         if approve:
             await cb.bot.send_message(
                 tx["telegram_id"],
-                f"✅ معامله شماره {fa_digits(tx_id)} تأیید شد.\n"
-                f"🔸 {tx['product_title']}\n💱 نرخ: {toman(tx['rate'])}\n\n"
-                "تسویه حداکثر تا ۲۴ ساعت انجام می‌شود. سپاس از اعتماد شما 🙏",
+                f"✅ *تأیید فیش و بسته‌شدن نرخ*\n\n"
+                f"🧾 معامله شماره {fa_digits(tx_id)} تأیید شد و نرخ شما قفل گردید.\n"
+                f"🔸 {tx['product_title']}\n"
+                + (f"📊 {tx['tier_label']}\n" if tx.get("tier_label") else "")
+                + f"💱 نرخ نهایی: {toman(tx['rate'])} به ازای هر {tx.get('unit') or ''}\n\n"
+                "تسویه‌حساب حداکثر تا ۲۴ ساعت انجام می‌شود. سپاس از اعتماد شما 🙏",
+                parse_mode="Markdown",
             )
         else:
             await cb.bot.send_message(
                 tx["telegram_id"],
-                f"❌ معامله شماره {fa_digits(tx_id)} تأیید نشد.\n"
+                f"❌ فیش معامله شماره {fa_digits(tx_id)} تأیید نشد.\n"
                 "برای پیگیری با پشتیبانی در ارتباط باشید.",
             )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("notify user on finalize failed: %s", e)
+    # علامت‌گذاری پیام بررسی برای ادمین
     try:
         suffix = "\n\n✅ تأیید شد." if approve else "\n\n❌ رد شد."
         if cb.message.caption is not None:
@@ -434,6 +442,26 @@ async def _finalize_tx(cb: CallbackQuery, tx_id: int, approve: bool):
         pass
     await cb.answer("انجام شد.")
 
+    # پس از تأیید، ابزار ارتباط با کاربر را به ادمین بده
+    if approve:
+        u = await get_user_by_tg(tx["telegram_id"])
+        uname = (u or {}).get("username")
+        name = (u or {}).get("full_name") or "کاربر"
+        info = (
+            f"🤝 *ارتباط با کاربر معامله {fa_digits(tx_id)}*\n\n"
+            f"👤 {name}\n"
+            f"🆔 آیدی: `{fa_digits(tx['telegram_id'])}`\n"
+            + (f"🔗 یوزرنیم: @{uname}\n" if uname else "🔗 یوزرنیم: ندارد (از دکمهٔ زیر پیام بده)\n")
+        )
+        try:
+            await cb.bot.send_message(
+                cb.from_user.id, info,
+                reply_markup=contact_user_kb(tx["telegram_id"], uname),
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.warning("send contact tools failed: %s", e)
+
 
 @router.callback_query(F.data.startswith("txok:"))
 async def cb_txok(cb: CallbackQuery):
@@ -443,6 +471,47 @@ async def cb_txok(cb: CallbackQuery):
 @router.callback_query(F.data.startswith("txno:"))
 async def cb_txno(cb: CallbackQuery):
     await _finalize_tx(cb, int(cb.data.split(":", 1)[1]), approve=False)
+
+
+# ─────────────────────────── پیام مستقیم ادمین به کاربر (از طریق ربات) ───────────────────────────
+
+@router.callback_query(F.data.startswith("amsg:"))
+async def cb_admin_message(cb: CallbackQuery, state: FSMContext):
+    tg_id = int(cb.data.split(":", 1)[1])
+    await state.set_state(AdminMessageUser.waiting_text)
+    await state.update_data(target=tg_id)
+    await cb.message.answer(
+        f"✉️ پیام خود برای کاربر `{fa_digits(tg_id)}` را بفرستید (متن یا عکس).\n"
+        "این پیام از طرف ربات به کاربر ارسال می‌شود.\n\n"
+        "برای انصراف /cancel را بزنید.",
+        parse_mode="Markdown",
+    )
+    await cb.answer()
+
+
+@router.message(AdminMessageUser.waiting_text)
+async def admin_message_send(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    target = data.get("target")
+    await state.clear()
+    if not target:
+        await msg.answer("کاربر مقصد مشخص نیست. دوباره از دکمهٔ ارتباط استفاده کنید.")
+        return
+
+    header = "📨 *پیامی از پشتیبانی صرافی پیک:*\n\n"
+    try:
+        if msg.photo:
+            cap = header + (msg.caption or "")
+            await msg.bot.send_photo(target, msg.photo[-1].file_id, caption=cap, parse_mode="Markdown")
+        else:
+            body = msg.text or msg.caption or ""
+            if not body.strip():
+                await msg.answer("پیام خالی بود؛ ارسال نشد.")
+                return
+            await msg.bot.send_message(target, header + body, parse_mode="Markdown")
+        await msg.answer("✅ پیام برای کاربر ارسال شد.")
+    except Exception as e:
+        await msg.answer(f"❌ ارسال پیام ناموفق بود (کاربر ممکن است ربات را بلاک کرده باشد).\n{str(e)[:150]}")
 
 
 # ─────────────────────────── شارژ کیف پول ───────────────────────────
@@ -529,7 +598,7 @@ async def cb_live(cb: CallbackQuery):
         lines.append(f"• {p['title']}{extra}: {toman(r) if r else 'ناموجود'}")
 
     kb = InlineKeyboardBuilder()
-    kb.row(_b("🔄 بروزرسانی", "adm:live"), _b("🔙 بازگشت", "admin"))
+    kb.row(_b("🔄 بروزرسانی", "adm:live", style="success"), _b("🔙 بازگشت", "admin"))
     await _open(cb, "\n".join(lines), kb.as_markup())
 
 
