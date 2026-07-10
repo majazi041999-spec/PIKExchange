@@ -40,6 +40,20 @@ def get_category(cid: str) -> Optional[dict]:
             return entry
     return None
 
+
+def parent_category(pid: str) -> Optional[str]:
+    """اگر محصول عضو یک دسته باشد، شناسهٔ آن دسته را برمی‌گرداند."""
+    for entry in MAIN_MENU:
+        if entry.get("kind") == "category" and pid in entry.get("members", []):
+            return entry.get("id")
+    return None
+
+
+def back_target(pid: str) -> str:
+    """مقصد دکمهٔ بازگشت برای صفحهٔ یک محصول: دستهٔ والد یا منوی اصلی."""
+    cid = parent_category(pid)
+    return f"cat:{cid}" if cid else "menu"
+
 DEFAULT_PRODUCTS: Dict[str, dict] = {
     "rub_c2c": {
         "title": "🇷🇺 خرید روبل",

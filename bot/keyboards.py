@@ -81,7 +81,7 @@ async def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
             if p:
                 kb.row(_btn(p["title"], f"p:{entry['id']}", style=p.get("style", "primary")))
     kb.row(
-        _btn("👛 کیف پول", "wallet", style="success"),
+        _btn("🏦 کیف پول", "wallet", style="success"),
         _btn("📋 معاملات من", "mytx", style="primary"),
     )
     kb.row(_btn("🆘 پشتیبانی و ارتباط با ما", "support", style="primary"))
@@ -112,21 +112,35 @@ def back_menu_kb() -> InlineKeyboardMarkup:
     )
 
 
-def tiers_kb(pid: str, tiers: list) -> InlineKeyboardMarkup:
+def _back_label(back_data: str) -> str:
+    return "🔙 بازگشت" if back_data.startswith(("cat:", "p:")) else "🔙 بازگشت به منوی اصلی"
+
+
+def tiers_kb(pid: str, tiers: list, back_data: str = "menu") -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     for t in tiers:
         kb.row(_btn(f"💹 {t['label']}", f"tier:{pid}:{t['key']}", style="primary"))
-    kb.row(_btn("🔙 بازگشت به منوی اصلی", "menu"))
+    kb.row(_btn(_back_label(back_data), back_data))
     return kb.as_markup()
 
 
-def agree_kb(pid: str, tier_key: str = "-") -> InlineKeyboardMarkup:
+def agree_kb(pid: str, tier_key: str = "-", back_data: str = "menu") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [_btn("✅ موافقت با قوانین و دریافت کارت", f"agree:{pid}:{tier_key}", style="success")],
-            [_btn("🔙 بازگشت", "menu")],
+            [_btn(_back_label(back_data), back_data)],
         ]
     )
+
+
+def support_kb() -> InlineKeyboardMarkup:
+    """صفحهٔ پشتیبانی: دکمهٔ گفتگوی مستقیم (اگر تنظیم شده) + بازگشت."""
+    rows = []
+    url = support_url()
+    if url:
+        rows.append([_btn("💬 گفتگو با پشتیبانی", url=url, style="success")])
+    rows.append([_btn("🔙 بازگشت به منوی اصلی", "menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def card_kb(tx_id: int) -> InlineKeyboardMarkup:

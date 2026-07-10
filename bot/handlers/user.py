@@ -15,8 +15,9 @@ from core.db import (
     get_user_transactions,
     update_transaction,
 )
+from aiogram.filters import Command
 from core.cards import get_active_card
-from core.products import get_category, get_product
+from core.products import back_target, get_category, get_product
 from core.rates import compute_simple_rate, compute_tier_rate
 from core.texts import get_text
 from core.utils import fa_digits, money, toman
@@ -27,6 +28,7 @@ from bot.keyboards import (
     category_kb,
     admin_review_kb,
     main_menu,
+    support_kb,
     suspended,
     suspended_kb,
     tiers_kb,
@@ -67,6 +69,13 @@ async def cb_menu(cb: CallbackQuery, state: FSMContext):
     except Exception:
         await cb.message.answer(welcome, reply_markup=kb, parse_mode="Markdown")
     await cb.answer()
+
+
+# لغو باید قبل از هندلرهای حالت (state) ثبت شود تا در هر مرحله‌ای کار کند
+@router.message(Command("cancel"))
+async def cmd_cancel(msg: Message, state: FSMContext):
+    await state.clear()
+    await msg.answer("❌ عملیات لغو شد.", reply_markup=await main_menu(is_admin(msg.from_user.id)))
 
 
 # ─────────────────────────── مشاهده محصول / نرخ ───────────────────────────
@@ -110,15 +119,18 @@ async def cb_product(cb: CallbackQuery):
         await cb.answer("این گزینه در دسترس نیست.", show_alert=True)
         return
 
+    back = back_target(pid)
+
     if product["type"] == "rub_tiered":
         text = (
             f"{product['title']}\n\n"
             "لطفاً نوع فیش و حجم معامله‌ی خود را انتخاب کنید تا نرخ لحظه‌ای اعلام شود:"
         )
+        kb = tiers_kb(pid, product["tiers"], back_data=back)
         try:
-            await cb.message.edit_text(text, reply_markup=tiers_kb(pid, product["tiers"]))
+            await cb.message.edit_text(text, reply_markup=kb)
         except Exception:
-            await cb.message.answer(text, reply_markup=tiers_kb(pid, product["tiers"]))
+            await cb.message.answer(text, reply_markup=kb)
         await cb.answer()
         return
 
@@ -138,9 +150,9 @@ async def cb_product(cb: CallbackQuery):
         return
     text = await _rate_block(product, rate, label)
     try:
-        await cb.message.edit_text(text, reply_markup=agree_kb(pid), parse_mode="Markdown")
+        await cb.message.edit_text(text, reply_markup=agree_kb(pid, back_data=back), parse_mode="Markdown")
     except Exception:
-        await cb.message.answer(text, reply_markup=agree_kb(pid), parse_mode="Markdown")
+        await cb.message.answer(text, reply_markup=agree_kb(pid, back_data=back), parse_mode="Markdown")
 
 
 @router.callback_query(F.data.startswith("tier:"))
@@ -164,10 +176,12 @@ async def cb_tier(cb: CallbackQuery):
         )
         return
     text = await _rate_block(product, rate, tier["label"])
+    # بازگشت از صفحهٔ نرخِ یک پله → به فهرست پله‌ها (تا کاربر بتواند پلهٔ دیگری بزند)
+    kb = agree_kb(pid, tier_key, back_data=f"p:{pid}")
     try:
-        await cb.message.edit_text(text, reply_markup=agree_kb(pid, tier_key), parse_mode="Markdown")
+        await cb.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     except Exception:
-        await cb.message.answer(text, reply_markup=agree_kb(pid, tier_key), parse_mode="Markdown")
+        await cb.message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
 
 # ─────────────────────────── موافقت + دریافت کارت ───────────────────────────
@@ -361,7 +375,7 @@ async def cb_wallet(cb: CallbackQuery):
     txs = await get_user_transactions(user["id"], limit=100)
     completed = sum(1 for t in txs if t["status"] == "completed")
     text = (
-        "👛 *کیف پول شما*\n\n"
+        "🏦 *کیف پول شما*\n\n"
         f"💰 موجودی: *{toman(user['wallet'])}*\n"
         f"✅ معاملات موفق: {fa_digits(completed)}\n\n"
         "موجودی کیف پول توسط پشتیبانی پس از تسویه شارژ می‌شود."
@@ -398,15 +412,12 @@ async def cb_mytx(cb: CallbackQuery):
 
 @router.callback_query(F.data == "support")
 async def cb_support(cb: CallbackQuery):
-    text = await get_text("text_support")
+    # parse_mode=None چون متن پشتیبانی ممکن است یوزرنیم با «_» داشته باشد که مارک‌داون را می‌شکند
+    text = (await get_text("text_support") or "").strip()
+    if not text:
+        text = "📞 پشتیبانی و ارتباط با ما\n\nبرای هماهنگی، از دکمهٔ زیر با پشتیبانی در ارتباط باشید."
     try:
-        await cb.message.edit_text(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+        await cb.message.edit_text(text, reply_markup=support_kb(), parse_mode=None)
     except Exception:
-        await cb.message.answer(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
+        await cb.message.answer(text, reply_markup=support_kb(), parse_mode=None)
     await cb.answer()
-
-
-@router.message(F.text.regexp(r"^/cancel"))
-async def cmd_cancel(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer("❌ عملیات لغو شد.", reply_markup=await main_menu(is_admin(msg.from_user.id)))

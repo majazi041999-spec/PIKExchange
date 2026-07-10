@@ -121,6 +121,13 @@ async def cb_toggle_suspend(cb: CallbackQuery):
     )
 
 
+# لغو باید قبل از هندلرهای حالت (state) ثبت شود تا در هر مرحله‌ای کار کند
+@router.message(Command("cancel"))
+async def admin_cancel(msg: Message, state: FSMContext):
+    await state.clear()
+    await msg.answer("❌ عملیات لغو شد. برای بازگشت به پنل /admin را بزنید.")
+
+
 # ─────────────────────────── محصولات / نرخ‌ها ───────────────────────────
 
 @router.callback_query(F.data == "adm:products")
@@ -815,10 +822,6 @@ async def bcast_send(msg: Message, state: FSMContext):
     await msg.answer(f"✅ ارسال شد.\nموفق: {fa_digits(sent)} | ناموفق: {fa_digits(failed)}")
 
 
-@router.message(Command("cancel"))
-async def admin_cancel(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer("❌ عملیات لغو شد. برای بازگشت به پنل /admin را بزنید.")
 
 
 # ─────────────────────────── اطلاع‌رسانی آپدیت ───────────────────────────
