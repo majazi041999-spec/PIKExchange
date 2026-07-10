@@ -20,3 +20,7 @@ update-local-changes-*.patch
 # os
 .DS_Store
 Thumbs.db
+
+# IDE
+.idea/
+.vscode/
