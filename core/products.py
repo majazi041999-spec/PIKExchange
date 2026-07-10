@@ -28,7 +28,7 @@ PRODUCT_ORDER: List[str] = [
 # ساختار منوی اصلی کاربر — می‌تواند «محصول» مستقیم یا «دسته» (زیرمنو) باشد.
 MAIN_MENU: List[dict] = [
     {"kind": "product", "id": "rub_c2c"},
-    {"kind": "category", "id": "usd", "title": "💵 خرید - فروش دلار",
+    {"kind": "category", "id": "usd", "title": "🇺🇸 خرید - فروش دلار",
      "style": "primary", "members": ["usd_stamped_sell", "usd_cash_buy"]},
     {"kind": "product", "id": "toman_with_rub"},
 ]

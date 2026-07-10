@@ -16,7 +16,8 @@ class AdminEdit(StatesGroup):
 
 class AdminWallet(StatesGroup):
     waiting_user = State()
-    waiting_amount = State()
+    waiting_amount = State()       # تغییر تومان
+    waiting_amount_rub = State()   # تغییر روبل
 
 
 class AdminMessageUser(StatesGroup):
@@ -25,9 +26,16 @@ class AdminMessageUser(StatesGroup):
 
 
 class AddCard(StatesGroup):
-    """افزودن کارت جدید: برچسب (نام/بانک) سپس متن کامل کارت."""
+    """افزودن کارت جدید: برچسب، سپس عکس/متن کارت، سپس شماره کارت و شبا (برای دکمهٔ کپی)."""
     waiting_label = State()
-    waiting_text = State()
+    waiting_content = State()   # عکس یا متن
+    waiting_number = State()    # شماره کارت (برای کپی)
+    waiting_sheba = State()     # شماره شبا (برای کپی)
+
+
+class PayoutFlow(StatesGroup):
+    """ثبت اطلاعات کارت روسی کاربر پس از تأیید فیش (برای فاکتور و واریز روبل)."""
+    waiting_info = State()
 
 
 class ConfirmTx(StatesGroup):

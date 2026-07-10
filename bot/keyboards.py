@@ -11,6 +11,22 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from core.products import MAIN_MENU
 
+try:
+    from aiogram.types import CopyTextButton
+except Exception:
+    CopyTextButton = None
+
+
+def _copy_btn(text: str, value: str) -> InlineKeyboardButton | None:
+    """دکمه‌ای که با یک تپ، مقدار را در کلیپ‌بورد کپی می‌کند (اگر نسخه پشتیبانی کند)."""
+    value = (value or "").strip()
+    if not value or CopyTextButton is None:
+        return None
+    try:
+        return InlineKeyboardButton(text=text, copy_text=CopyTextButton(text=value))
+    except Exception:
+        return None
+
 from core.config import SUPPORT_USERNAME
 
 # وضعیت رنگی‌بودن دکمه‌ها (در startup از دیتابیس بارگذاری می‌شود)
@@ -143,13 +159,18 @@ def support_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def card_kb(tx_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [_btn("📤 ارسال فیش واریز", f"receipt:{tx_id}", style="success")],
-            [_btn("🔙 بازگشت به منوی اصلی", "menu")],
-        ]
-    )
+def card_kb(tx_id: int, card_number: str = "", sheba: str = "") -> InlineKeyboardMarkup:
+    """کیبورد صفحهٔ کارت: دکمه‌های کپی (شماره کارت/شبا) + ارسال فیش + بازگشت."""
+    rows = []
+    cnum = _copy_btn("📋 کپی شماره کارت", card_number)
+    csheba = _copy_btn("📋 کپی شماره شبا", sheba)
+    if cnum:
+        rows.append([cnum])
+    if csheba:
+        rows.append([csheba])
+    rows.append([_btn("📤 ارسال فیش واریز", f"receipt:{tx_id}", style="success")])
+    rows.append([_btn("🔙 بازگشت به منوی اصلی", "menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def suspended_kb(tx_id: int) -> InlineKeyboardMarkup:
@@ -170,6 +191,15 @@ def admin_review_kb(tx_id: int) -> InlineKeyboardMarkup:
                 _btn("✅ تأیید فیش و بستن نرخ", f"txok:{tx_id}", style="success"),
                 _btn("❌ رد فیش", f"txno:{tx_id}", style="danger"),
             ]
+        ]
+    )
+
+
+def payout_kb(tx_id: int) -> InlineKeyboardMarkup:
+    """دکمهٔ ثبت اطلاعات کارت روسی کاربر پس از تأیید فیش."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("📇 ثبت اطلاعات کارت من (برای دریافت روبل)", f"payout:{tx_id}", style="success")],
         ]
     )
 

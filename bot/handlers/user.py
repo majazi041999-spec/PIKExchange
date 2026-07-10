@@ -20,20 +20,23 @@ from core.cards import get_active_card
 from core.products import back_target, get_category, get_product
 from core.rates import compute_simple_rate, compute_tier_rate
 from core.texts import get_text
-from core.utils import fa_digits, money, toman
+from core.config import SUPPORT_USERNAME
+from core.utils import fa_digits, money, num, toman
 from bot.keyboards import (
     agree_kb,
     back_menu_kb,
     card_kb,
     category_kb,
     admin_review_kb,
+    contact_user_kb,
     main_menu,
+    payout_kb,
     support_kb,
     suspended,
     suspended_kb,
     tiers_kb,
 )
-from bot.states import ReceiptFlow
+from bot.states import PayoutFlow, ReceiptFlow
 
 logger = logging.getLogger("pik.user")
 router = Router()
@@ -276,10 +279,18 @@ async def cb_agree(cb: CallbackQuery):
     except Exception:
         await cb.message.answer(confirm, parse_mode="Markdown")
 
-    # پیام دوم: متن کامل کارت فعال (تمیز و قابل‌کپی) + دکمه ارسال فیش
+    # پیام دوم: کارت فعال (عکس یا متن) + دکمه‌های کپی + ارسال فیش
     card = await get_active_card()
-    if card and (card.get("text") or "").strip():
-        await cb.message.answer(card["text"], reply_markup=card_kb(tx_id), parse_mode=None)
+    has_card = card and (card.get("image") or (card.get("text") or "").strip())
+    if has_card:
+        kb = card_kb(tx_id, card.get("card_number", ""), card.get("sheba", ""))
+        if card.get("image"):
+            await cb.message.answer_photo(
+                card["image"], caption=(card.get("text") or None),
+                reply_markup=kb, parse_mode=None,
+            )
+        else:
+            await cb.message.answer(card["text"], reply_markup=kb, parse_mode=None)
     else:
         await cb.message.answer(
             "💳 اطلاعات کارت هنوز ثبت نشده است. لطفاً برای دریافت شماره کارت با پشتیبانی هماهنگ کنید،\n"
@@ -367,6 +378,85 @@ async def _notify_admins_receipt(msg: Message, tx: dict, file_id: str, caption: 
             logger.warning("notify admin %s failed: %s", aid, e)
 
 
+# ─────────────────────────── ثبت کارت روسی کاربر (فاکتور واریز روبل) ───────────────────────────
+
+def _build_invoice(payout_text: str, equivalent: int) -> str:
+    """فاکتور واریز روبل را از اطلاعات کاربر می‌سازد."""
+    lines = [l.strip() for l in (payout_text or "").splitlines() if l.strip()]
+    if len(lines) >= 4:
+        card, phone, name = lines[0], lines[1], lines[2]
+        bank = " ".join(lines[3:])
+        parts = [card, "", phone, "", name, "", f"{bank} 💵"]
+    else:
+        parts = [(payout_text or "").strip()]
+    if equivalent and equivalent > 0:
+        # عدد روبل با ارقام لاتین (هماهنگ با کارت/تلفن روسی)
+        parts += ["", f"{equivalent:,} ₽"]
+    return "\n".join(parts)
+
+
+@router.callback_query(F.data.startswith("payout:"))
+async def cb_payout(cb: CallbackQuery, state: FSMContext):
+    tx_id = int(cb.data.split(":", 1)[1])
+    tx = await get_transaction(tx_id)
+    if not tx or tx["telegram_id"] != cb.from_user.id:
+        await cb.answer("معامله یافت نشد.", show_alert=True)
+        return
+    await state.set_state(PayoutFlow.waiting_info)
+    await state.update_data(tx_id=tx_id)
+    await cb.message.answer(
+        "📇 لطفاً اطلاعات حساب روسی خود را که می‌خواهید روبل به آن واریز شود،\n"
+        "هر مورد را در *یک خط جدا* و به همین ترتیب بفرستید:\n\n"
+        "۱️⃣ شماره کارت ۱۶ رقمی\n"
+        "۲️⃣ شماره تلفن متصل به حساب\n"
+        "۳️⃣ نام و نام خانوادگی (به روسی)\n"
+        "۴️⃣ نام بانک روسی (مثل Сбер، Т-Банк، Озон)\n\n"
+        "برای انصراف /cancel را بزنید.",
+        parse_mode="Markdown",
+    )
+    await cb.answer()
+
+
+@router.message(PayoutFlow.waiting_info)
+async def receive_payout(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    tx_id = data.get("tx_id")
+    tx = await get_transaction(tx_id) if tx_id else None
+    if not tx:
+        await state.clear()
+        await msg.answer("معامله یافت نشد.", reply_markup=back_menu_kb())
+        return
+    text = (msg.text or "").strip()
+    if not text:
+        await msg.answer("لطفاً اطلاعات حساب را به‌صورت متن (۴ خط) بفرستید.")
+        return
+    await update_transaction(tx_id, payout_info=text)
+    await state.clear()
+    invoice = _build_invoice(text, int(tx.get("equivalent") or 0))
+    await msg.answer(
+        "✅ اطلاعات حساب شما ثبت شد و برای شروع تسویه به پشتیبانی ارسال گردید.\n\n"
+        "🧾 فاکتور شما:\n————————\n" + invoice + "\n————————\n"
+        "به‌زودی برای واریز روبل با شما هماهنگ می‌شود. 🙏",
+        reply_markup=back_menu_kb(), parse_mode=None,
+    )
+    uname = f"@{msg.from_user.username}" if msg.from_user.username else "—"
+    admin_text = (
+        f"🧾 فاکتور واریز روبل — معامله {fa_digits(tx_id)}\n"
+        f"👤 {msg.from_user.full_name} ({uname}) | 🆔 {fa_digits(msg.from_user.id)}\n"
+        f"🔸 {tx['product_title']}\n"
+        "————————\n" + invoice
+    )
+    for aid in ADMIN_IDS:
+        try:
+            await msg.bot.send_message(
+                aid, admin_text,
+                reply_markup=contact_user_kb(msg.from_user.id, msg.from_user.username),
+                parse_mode=None,
+            )
+        except Exception as e:
+            logger.warning("notify admin invoice %s failed: %s", aid, e)
+
+
 # ─────────────────────────── کیف پول / معاملات / پشتیبانی ───────────────────────────
 
 @router.callback_query(F.data == "wallet")
@@ -376,9 +466,10 @@ async def cb_wallet(cb: CallbackQuery):
     completed = sum(1 for t in txs if t["status"] == "completed")
     text = (
         "🏦 *کیف پول شما*\n\n"
-        f"💰 موجودی: *{toman(user['wallet'])}*\n"
+        f"🇷🇺 روبل: *{num(user.get('wallet_rub', 0))}*\n"
+        f"🇮🇷 تومان: *{toman(user['wallet'])}*\n\n"
         f"✅ معاملات موفق: {fa_digits(completed)}\n\n"
-        "موجودی کیف پول توسط پشتیبانی پس از تسویه شارژ می‌شود."
+        "کیف پول شما به‌صورت خودکار پس از نشستن مبلغ واریزی به حساب مقصد و تأیید فیش واریزی شارژ می‌شود."
     )
     try:
         await cb.message.edit_text(text, reply_markup=back_menu_kb(), parse_mode="Markdown")

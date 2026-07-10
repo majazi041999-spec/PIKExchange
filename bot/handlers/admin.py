@@ -24,7 +24,7 @@ from core.products import PRODUCT_ORDER, get_product, get_products, save_product
 from core.rates import compute_simple_rate, compute_tier_rate, fetch_rates
 from core.utils import en_digits, fa_digits, money, num, parse_int, toman
 from bot.keyboards import (
-    back_menu_kb, color_enabled, contact_user_kb, set_color_enabled,
+    back_menu_kb, color_enabled, contact_user_kb, payout_kb, set_color_enabled,
     set_suspended, styled_btn, suspended,
 )
 from bot.states import AddCard, AdminEdit, AdminMessageUser, AdminWallet, Broadcast, ConfirmTx
@@ -284,12 +284,20 @@ async def _card_view():
     else:
         lines.append(f"تعداد کارت‌ها: {fa_digits(len(cards))}")
         lines.append(f"کارت فعال: {active.get('label') if active else '—'}")
-        lines.append("")
-        lines.append("متنی که هم‌اکنون به کاربر نمایش داده می‌شود:")
-        lines.append("────────────")
-        lines.append((active or {}).get("text", "—"))
-        lines.append("────────────")
-        lines.append("برای تغییر کارت فعال، روی «انتخاب» همان کارت بزنید.")
+        if active:
+            kind = "🖼 عکس" if active.get("image") else "✍️ متن"
+            lines.append(f"نوع: {kind}")
+            if active.get("card_number"):
+                lines.append(f"دکمهٔ کپی شماره کارت: {active['card_number']}")
+            if active.get("sheba"):
+                lines.append(f"دکمهٔ کپی شبا: {active['sheba']}")
+            if active.get("text"):
+                lines.append("")
+                lines.append("متن نمایش‌داده‌شده:")
+                lines.append("────────────")
+                lines.append(active.get("text", ""))
+                lines.append("────────────")
+        lines.append("برای تغییر کارت فعال، روی همان کارت بزنید.")
 
     kb = InlineKeyboardBuilder()
     for c in cards:
@@ -348,26 +356,66 @@ async def card_add_label(msg: Message, state: FSMContext):
         await msg.answer("برچسب خالی است. یک نام کوتاه بفرستید.")
         return
     await state.update_data(label=label)
-    await state.set_state(AddCard.waiting_text)
+    await state.set_state(AddCard.waiting_content)
     await msg.answer(
-        "۲) حالا *متن کامل کارت* را همان‌طور که می‌خواهید عیناً به کاربر نمایش داده شود بفرستید.\n\n"
-        "مثال:\n"
-        "بلو بانک 💵\n\n"
-        "IR600560611828005200334501\n\n"
-        "6219861946953824\n\n"
+        "۲) حالا کارت را ثبت کنید — یکی از این دو کار را انجام دهید:\n\n"
+        "🖼 *عکس کارت* را بفرستید (توصیه‌شده؛ می‌توانید کپشن هم بگذارید)،\n"
+        "یا ✍️ *متن کامل کارت* را تایپ و ارسال کنید.\n\n"
+        "مثال متن:\n"
+        "بلو بانک 💵\n"
+        "IR600560611828005200334501\n"
+        "6219861946953824\n"
         "بهرام قاسمی",
         parse_mode="Markdown",
     )
 
 
-@router.message(AddCard.waiting_text)
-async def card_add_text(msg: Message, state: FSMContext):
-    text = msg.text or msg.caption or ""
-    if not text.strip():
-        await msg.answer("متن کارت خالی است. متن کامل کارت را بفرستید.")
+@router.message(AddCard.waiting_content)
+async def card_add_content(msg: Message, state: FSMContext):
+    image = ""
+    text = ""
+    if msg.photo:
+        image = msg.photo[-1].file_id
+        text = (msg.caption or "").strip()
+    elif msg.text and msg.text.strip():
+        text = msg.text.strip()
+    else:
+        await msg.answer("لطفاً عکس کارت یا متن کارت را بفرستید.")
         return
+    await state.update_data(image=image, text=text)
+    await state.set_state(AddCard.waiting_number)
+    await msg.answer(
+        "۳) شماره کارت را برای *دکمهٔ کپی* بفرستید (فقط ارقام).\n"
+        "اگر نمی‌خواهید دکمهٔ کپی شماره کارت باشد، «-» بفرستید.",
+        parse_mode="Markdown",
+    )
+
+
+@router.message(AddCard.waiting_number)
+async def card_add_number(msg: Message, state: FSMContext):
+    raw = (msg.text or "").strip()
+    number = "" if raw in ("-", "") else en_digits(raw).replace(" ", "").replace("-", "")
+    await state.update_data(card_number=number)
+    await state.set_state(AddCard.waiting_sheba)
+    await msg.answer(
+        "۴) شماره شبا را برای *دکمهٔ کپی* بفرستید (مثل IR...).\n"
+        "اگر نمی‌خواهید، «-» بفرستید.",
+        parse_mode="Markdown",
+    )
+
+
+@router.message(AddCard.waiting_sheba)
+async def card_add_sheba(msg: Message, state: FSMContext):
+    raw = (msg.text or "").strip()
+    sheba = "" if raw in ("-", "") else en_digits(raw).replace(" ", "")
     data = await state.get_data()
-    cid = await add_card(data.get("label", "کارت"), text)
+    cid = await add_card(
+        data.get("label", "کارت"),
+        text=data.get("text", ""),
+        image=data.get("image", ""),
+        card_number=data.get("card_number", ""),
+        sheba=sheba,
+    )
     await state.clear()
     await msg.answer(f"✅ کارت ثبت شد (شناسه {fa_digits(cid)}).")
     view, kb = await _card_view()
@@ -538,32 +586,37 @@ async def _send_contact_tools(bot, admin_id: int, tx: dict):
 
 
 async def _approve_tx(cb_or_msg, tx: dict, amount: int, admin_id: int, bot):
-    """تأیید نهایی معامله + اطلاع به کاربر همراه با محاسبهٔ معادل."""
+    """تأیید نهایی معامله + اطلاع به کاربر همراه با محاسبهٔ معادل و درخواست کارت مقصد."""
     currency = tx.get("currency", "تومان")
     unit = tx.get("unit") or ""
     rate = int(tx.get("rate") or 0)
-    await update_transaction(tx["id"], status="completed")
+    equivalent = int(round(amount / rate)) if (amount > 0 and rate > 0) else 0
+    await update_transaction(tx["id"], status="completed", equivalent=equivalent)
 
-    equiv_line = ""
-    if amount > 0 and rate > 0:
-        equivalent = int(round(amount / rate))
-        equiv_line = (
-            f"💰 مبلغ {money(amount, currency)} به نرخ {fa_digits(rate)} "
-            f"معادل *{num(equivalent)} {unit}* شد.\n"
-        )
+    lines = [
+        "✅ *تأیید فیش و بسته‌شدن نرخ*",
+        "",
+        f"🧾 معامله شماره {fa_digits(tx['id'])} تأیید و نرخ شما قفل شد.",
+        f"🔸 {tx['product_title']}",
+    ]
+    if tx.get("tier_label"):
+        lines.append(f"📊 {tx['tier_label']}")
+    lines.append(f"💱 نرخ نهایی: {money(rate, currency)} به ازای هر {unit}")
+    if equivalent > 0:
+        lines.append(f"💰 مبلغ {money(amount, currency)} به نرخ {fa_digits(rate)} معادل *{num(equivalent)} {unit}* بسته شد.")
+
+    receives_rub = (unit == "روبل")
+    kb = None
+    if receives_rub:
+        lines.append("")
+        lines.append("📇 لطفاً اطلاعات کارت روسی خود را ثبت کنید تا برای شروع تسویه و واریز روبل با شما هماهنگ شود.")
+        kb = payout_kb(tx["id"])
+    else:
+        lines.append("")
+        lines.append("تسویه‌حساب حداکثر تا ۲۴ ساعت انجام می‌شود. سپاس از اعتماد شما 🙏")
 
     try:
-        await bot.send_message(
-            tx["telegram_id"],
-            f"✅ *تأیید فیش و بسته‌شدن نرخ*\n\n"
-            f"🧾 معامله شماره {fa_digits(tx['id'])} تأیید شد و نرخ شما قفل گردید.\n"
-            f"🔸 {tx['product_title']}\n"
-            + (f"📊 {tx['tier_label']}\n" if tx.get("tier_label") else "")
-            + f"💱 نرخ نهایی: {money(rate, currency)} به ازای هر {unit}\n"
-            + equiv_line
-            + "\nتسویه‌حساب حداکثر تا ۲۴ ساعت انجام می‌شود. سپاس از اعتماد شما 🙏",
-            parse_mode="Markdown",
-        )
+        await bot.send_message(tx["telegram_id"], "\n".join(lines), reply_markup=kb, parse_mode="Markdown")
     except Exception as e:
         logger.warning("notify user on approve failed: %s", e)
 
@@ -720,8 +773,10 @@ async def wallet_user(msg: Message, state: FSMContext):
     await state.update_data(user_id=user["id"], tg_id=tg_id)
     await state.set_state(AdminWallet.waiting_amount)
     await msg.answer(
-        f"موجودی فعلی: {toman(user['wallet'])}\n\n"
-        "مبلغ تغییر را بفرستید. برای افزایش عدد مثبت و برای کاهش عدد منفی (مثلاً -50000)."
+        f"👤 {user.get('full_name') or 'کاربر'}\n"
+        f"موجودی فعلی — 🇮🇷 {toman(user['wallet'])} | 🇷🇺 {num(user.get('wallet_rub', 0))} روبل\n\n"
+        "۱) مبلغ تغییر *تومان* را بفرستید (+ افزایش، - کاهش، 0 بدون تغییر):",
+        parse_mode="Markdown",
     )
 
 
@@ -730,16 +785,33 @@ async def wallet_amount(msg: Message, state: FSMContext):
     try:
         delta = parse_int(msg.text)
     except (ValueError, TypeError):
-        await msg.answer("مبلغ نامعتبر است.")
+        await msg.answer("مبلغ نامعتبر است. یک عدد بفرستید (0 برای بدون تغییر).")
+        return
+    await state.update_data(delta_toman=delta)
+    await state.set_state(AdminWallet.waiting_amount_rub)
+    await msg.answer("۲) حالا مبلغ تغییر *روبل* را بفرستید (+/-/0):", parse_mode="Markdown")
+
+
+@router.message(AdminWallet.waiting_amount_rub)
+async def wallet_amount_rub(msg: Message, state: FSMContext):
+    try:
+        delta_rub = parse_int(msg.text)
+    except (ValueError, TypeError):
+        await msg.answer("مبلغ نامعتبر است. یک عدد بفرستید (0 برای بدون تغییر).")
         return
     data = await state.get_data()
-    new_val = await adjust_wallet(data["user_id"], delta)
+    new_toman = await adjust_wallet(data["user_id"], data.get("delta_toman", 0), currency="toman")
+    new_rub = await adjust_wallet(data["user_id"], delta_rub, currency="rub")
     await state.clear()
-    await msg.answer(f"✅ انجام شد. موجودی جدید: {toman(new_val)}")
+    await msg.answer(
+        f"✅ انجام شد. موجودی جدید:\n🇮🇷 {toman(new_toman)} | 🇷🇺 {num(new_rub)} روبل"
+    )
     try:
         await msg.bot.send_message(
             data["tg_id"],
-            f"👛 موجودی کیف پول شما به‌روزرسانی شد.\nموجودی فعلی: {toman(new_val)}",
+            "🏦 موجودی کیف پول شما به‌روزرسانی شد.\n\n"
+            f"🇷🇺 روبل: {num(new_rub)}\n"
+            f"🇮🇷 تومان: {toman(new_toman)}",
         )
     except Exception:
         pass

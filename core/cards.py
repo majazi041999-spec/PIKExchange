@@ -30,10 +30,18 @@ async def get_active_card() -> Optional[dict]:
     return cards[0]  # اگر انتخابی نبود، اولین کارت
 
 
-async def add_card(label: str, text: str) -> int:
+async def add_card(label: str, text: str = "", image: str = "",
+                   card_number: str = "", sheba: str = "") -> int:
     cards = await get_cards()
     new_id = (max((int(c.get("id", 0)) for c in cards), default=0) + 1)
-    cards.append({"id": new_id, "label": label.strip(), "text": text})
+    cards.append({
+        "id": new_id,
+        "label": label.strip(),
+        "text": text,
+        "image": image,              # file_id عکس کارت (اختیاری)
+        "card_number": card_number,  # برای دکمهٔ کپی
+        "sheba": sheba,              # برای دکمهٔ کپی
+    })
     await set_json("cards", cards)
     # اگر اولین کارت است، همان را فعال کن
     if len(cards) == 1:

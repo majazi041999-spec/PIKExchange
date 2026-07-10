@@ -69,12 +69,18 @@ async def init_db() -> None:
             """
         )
         await conn.commit()
-        # migration: ستون واحد پول تراکنش (تومان/روبل)
-        try:
-            await conn.execute("ALTER TABLE transactions ADD COLUMN currency TEXT NOT NULL DEFAULT 'تومان'")
-            await conn.commit()
-        except Exception:
-            pass
+        # migrations (افزودن ستون‌های جدید در صورت نبودن)
+        for stmt in (
+            "ALTER TABLE transactions ADD COLUMN currency TEXT NOT NULL DEFAULT 'تومان'",
+            "ALTER TABLE transactions ADD COLUMN equivalent INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE transactions ADD COLUMN payout_info TEXT DEFAULT ''",
+            "ALTER TABLE users ADD COLUMN wallet_rub INTEGER NOT NULL DEFAULT 0",
+        ):
+            try:
+                await conn.execute(stmt)
+                await conn.commit()
+            except Exception:
+                pass
     finally:
         await conn.close()
 
@@ -176,15 +182,16 @@ async def update_user(user_id: int, **fields) -> None:
         await conn.close()
 
 
-async def adjust_wallet(user_id: int, delta: int) -> int:
-    """موجودی کیف‌پول را تغییر می‌دهد و مقدار جدید را برمی‌گرداند (منفی نمی‌شود)."""
+async def adjust_wallet(user_id: int, delta: int, currency: str = "toman") -> int:
+    """موجودی کیف‌پول (تومان یا روبل) را تغییر می‌دهد و مقدار جدید را برمی‌گرداند."""
+    col = "wallet_rub" if currency == "rub" else "wallet"
     conn = await _connect()
     try:
-        cur = await conn.execute("SELECT wallet FROM users WHERE id=?", (user_id,))
+        cur = await conn.execute(f"SELECT {col} AS w FROM users WHERE id=?", (user_id,))
         row = await cur.fetchone()
-        current = row["wallet"] if row else 0
+        current = row["w"] if row else 0
         new_val = max(0, current + int(delta))
-        await conn.execute("UPDATE users SET wallet=? WHERE id=?", (new_val, user_id))
+        await conn.execute(f"UPDATE users SET {col}=? WHERE id=?", (new_val, user_id))
         await conn.commit()
         return new_val
     finally:
@@ -249,7 +256,7 @@ async def get_transaction(tx_id: int) -> Optional[Dict]:
 
 
 async def update_transaction(tx_id: int, **fields) -> None:
-    allowed = {"status", "receipt_file_id", "admin_note"}
+    allowed = {"status", "receipt_file_id", "admin_note", "equivalent", "payout_info"}
     sets = {k: v for k, v in fields.items() if k in allowed}
     if not sets:
         return
