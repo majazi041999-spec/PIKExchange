@@ -74,28 +74,32 @@ def _num(v) -> float:
 async def _fetch_bonbast() -> Dict[str, Dict[str, float]]:
     """نرخ روبل/دلار از bonbast.com (مقادیر به تومان هستند).
 
-    روش: توکن پویا از صفحهٔ اصلی استخراج و سپس POST به ‎/json‎.
-    اگر ساختار سایت تغییر کند یا در دسترس نباشد، دیکشنری خالی برمی‌گردد.
+    روش (مطابق کتابخانه‌های رسمی bonbast):
+      ۱) GET صفحهٔ اصلی با کوکی ``rf_bb=true; st_bb=0`` و استخراج توکن که بین
+         ``{ data:"`` و ``",`` قرار دارد.
+      ۲) POST به ‎/json‎ با بدنهٔ ``data=<token>&webdriver=false``.
+      ۳) پاسخ JSON کلیدهای ``usd1/usd2`` و ``rub1/rub2`` دارد (تومان).
+    اگر در دسترس نباشد یا ساختار عوض شود، دیکشنری خالی برمی‌گردد و به منبع بعدی می‌رود.
     """
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_HEADERS) as client:
+    headers = {**_HEADERS, "Cookie": "rf_bb=true; st_bb=0"}
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=headers) as client:
         home = await client.get("https://bonbast.com/")
         home.raise_for_status()
-        # bonbast یک جفت کلید/مقدار پویا داخل $.post('/json', {...}) می‌گذارد
-        m = re.search(r"\$\.post\(\s*['\"]/json['\"]\s*,\s*\{\s*['\"](\w+)['\"]\s*:\s*['\"](\w+)['\"]", home.text)
-        payload = {m.group(1): m.group(2)} if m else {}
-        resp = await client.post(
-            "https://bonbast.com/json", data=payload,
-            headers={**_HEADERS, "X-Requested-With": "XMLHttpRequest",
-                     "Referer": "https://bonbast.com/"},
-        )
+        # توکن داخل: $.post('/json', {param: "<token>"}, ...)
+        m = re.search(r"""\$\.post\(\s*['"]/json['"]\s*,\s*\{\s*param\s*:\s*['"]([^'"]+)['"]""", home.text)
+        if not m:
+            return {}
+        token = m.group(1)
+        resp = await client.post("https://bonbast.com/json", data={"param": token})
         resp.raise_for_status()
         j = resp.json()
 
+    # ستون‌های جدول bonbast: X1=فروش، X2=خرید — مقادیر به تومان
     data: Dict[str, Dict[str, float]] = {}
     for code in ("rub", "usd"):
-        sell = _num(j.get(f"{code}1"))   # فروش
-        buy = _num(j.get(f"{code}2"))    # خرید
-        if buy > 0 or sell > 0:
+        sell = _num(j.get(f"{code}1"))
+        buy = _num(j.get(f"{code}2"))
+        if sell > 0 or buy > 0:
             data[code] = {"buy": buy or sell, "sell": sell or buy}
     return data
 
