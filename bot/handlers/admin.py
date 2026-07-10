@@ -23,8 +23,11 @@ from core.cards import add_card, delete_card, get_active_card, get_cards, set_ac
 from core.products import PRODUCT_ORDER, get_product, get_products, save_product
 from core.rates import compute_simple_rate, compute_tier_rate, fetch_rates
 from core.utils import en_digits, fa_digits, money, num, parse_int, toman
-from bot.keyboards import back_menu_kb, color_enabled, contact_user_kb, set_color_enabled, styled_btn
-from bot.states import AddCard, AdminEdit, AdminMessageUser, AdminWallet, Broadcast
+from bot.keyboards import (
+    back_menu_kb, color_enabled, contact_user_kb, set_color_enabled,
+    set_suspended, styled_btn, suspended,
+)
+from bot.states import AddCard, AdminEdit, AdminMessageUser, AdminWallet, Broadcast, ConfirmTx
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -64,6 +67,8 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
            _b("📢 پیام همگانی", "adm:bcast", style="danger"))
     color_txt = "🎨 دکمه‌های رنگی: روشن ✅" if color_enabled() else "🎨 دکمه‌های رنگی: خاموش ⛔️"
     kb.row(_b(color_txt, "adm:togglecolor", style="primary"))
+    susp_txt = "⏸ حالت معلق: روشن 🔴" if suspended() else "▶️ حالت معلق: خاموش (فعال)"
+    kb.row(_b(susp_txt, "adm:togglesuspend", style="danger" if suspended() else "success"))
     kb.row(_b("🔙 بازگشت به منوی کاربری", "menu"))
     return kb.as_markup()
 
@@ -101,6 +106,19 @@ async def cb_toggle_color(cb: CallbackQuery):
     await set_setting("buttons_colored", "1" if new_val else "0")
     await _open(cb, "🛠 *پنل مدیریت*\n\nیک بخش را انتخاب کنید:", admin_menu_kb())
     await cb.answer("دکمه‌ها رنگی شد ✅" if new_val else "دکمه‌ها به حالت عادی برگشت ⛔️")
+
+
+@router.callback_query(F.data == "adm:togglesuspend")
+async def cb_toggle_suspend(cb: CallbackQuery):
+    new_val = not suspended()
+    set_suspended(new_val)
+    await set_setting("suspended", "1" if new_val else "0")
+    await _open(cb, "🛠 *پنل مدیریت*\n\nیک بخش را انتخاب کنید:", admin_menu_kb())
+    await cb.answer(
+        "حالت معلق روشن شد؛ واریز مستقیم غیرفعال است ⏸" if new_val
+        else "حالت معلق خاموش شد؛ ربات عادی کار می‌کند ▶️",
+        show_alert=True,
+    )
 
 
 # ─────────────────────────── محصولات / نرخ‌ها ───────────────────────────
@@ -494,7 +512,60 @@ async def cb_tx(cb: CallbackQuery):
     await cb.answer()
 
 
-async def _finalize_tx(cb: CallbackQuery, tx_id: int, approve: bool):
+async def _send_contact_tools(bot, admin_id: int, tx: dict):
+    """پس از تأیید، ابزار ارتباط با کاربر را به ادمین می‌دهد."""
+    u = await get_user_by_tg(tx["telegram_id"])
+    uname = (u or {}).get("username")
+    name = (u or {}).get("full_name") or "کاربر"
+    info = (
+        f"🤝 *ارتباط با کاربر معامله {fa_digits(tx['id'])}*\n\n"
+        f"👤 {name}\n"
+        f"🆔 آیدی: `{fa_digits(tx['telegram_id'])}`\n"
+        + (f"🔗 یوزرنیم: @{uname}\n" if uname else "🔗 یوزرنیم: ندارد (از دکمهٔ زیر پیام بده)\n")
+    )
+    try:
+        await bot.send_message(admin_id, info, reply_markup=contact_user_kb(tx["telegram_id"], uname),
+                               parse_mode="Markdown")
+    except Exception as e:
+        logger.warning("send contact tools failed: %s", e)
+
+
+async def _approve_tx(cb_or_msg, tx: dict, amount: int, admin_id: int, bot):
+    """تأیید نهایی معامله + اطلاع به کاربر همراه با محاسبهٔ معادل."""
+    currency = tx.get("currency", "تومان")
+    unit = tx.get("unit") or ""
+    rate = int(tx.get("rate") or 0)
+    await update_transaction(tx["id"], status="completed")
+
+    equiv_line = ""
+    if amount > 0 and rate > 0:
+        equivalent = int(round(amount / rate))
+        equiv_line = (
+            f"💰 مبلغ {money(amount, currency)} به نرخ {fa_digits(rate)} "
+            f"معادل *{num(equivalent)} {unit}* شد.\n"
+        )
+
+    try:
+        await bot.send_message(
+            tx["telegram_id"],
+            f"✅ *تأیید فیش و بسته‌شدن نرخ*\n\n"
+            f"🧾 معامله شماره {fa_digits(tx['id'])} تأیید شد و نرخ شما قفل گردید.\n"
+            f"🔸 {tx['product_title']}\n"
+            + (f"📊 {tx['tier_label']}\n" if tx.get("tier_label") else "")
+            + f"💱 نرخ نهایی: {money(rate, currency)} به ازای هر {unit}\n"
+            + equiv_line
+            + "\nتسویه‌حساب حداکثر تا ۲۴ ساعت انجام می‌شود. سپاس از اعتماد شما 🙏",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.warning("notify user on approve failed: %s", e)
+
+    await _send_contact_tools(bot, admin_id, tx)
+
+
+@router.callback_query(F.data.startswith("txok:"))
+async def cb_txok(cb: CallbackQuery, state: FSMContext):
+    tx_id = int(cb.data.split(":", 1)[1])
     tx = await get_transaction(tx_id)
     if not tx:
         await cb.answer("معامله یافت نشد.", show_alert=True)
@@ -502,69 +573,78 @@ async def _finalize_tx(cb: CallbackQuery, tx_id: int, approve: bool):
     if tx["status"] in ("completed", "canceled"):
         await cb.answer("این معامله قبلاً بررسی شده است.", show_alert=True)
         return
-    new_status = "completed" if approve else "canceled"
-    await update_transaction(tx_id, status=new_status)
-    # اطلاع به کاربر
-    try:
-        if approve:
-            await cb.bot.send_message(
-                tx["telegram_id"],
-                f"✅ *تأیید فیش و بسته‌شدن نرخ*\n\n"
-                f"🧾 معامله شماره {fa_digits(tx_id)} تأیید شد و نرخ شما قفل گردید.\n"
-                f"🔸 {tx['product_title']}\n"
-                + (f"📊 {tx['tier_label']}\n" if tx.get("tier_label") else "")
-                + f"💱 نرخ نهایی: {money(tx['rate'], tx.get('currency','تومان'))} به ازای هر {tx.get('unit') or ''}\n\n"
-                "تسویه‌حساب حداکثر تا ۲۴ ساعت انجام می‌شود. سپاس از اعتماد شما 🙏",
-                parse_mode="Markdown",
-            )
-        else:
-            await cb.bot.send_message(
-                tx["telegram_id"],
-                f"❌ فیش معامله شماره {fa_digits(tx_id)} تأیید نشد.\n"
-                "برای پیگیری با پشتیبانی در ارتباط باشید.",
-            )
-    except Exception as e:
-        logger.warning("notify user on finalize failed: %s", e)
-    # علامت‌گذاری پیام بررسی برای ادمین
-    try:
-        suffix = "\n\n✅ تأیید شد." if approve else "\n\n❌ رد شد."
-        if cb.message.caption is not None:
-            await cb.message.edit_caption(caption=(cb.message.caption or "") + suffix, parse_mode=None)
-        else:
-            await cb.message.edit_text((cb.message.text or "") + suffix, parse_mode=None)
-    except Exception:
-        pass
-    await cb.answer("انجام شد.")
+    currency = tx.get("currency", "تومان")
+    unit = tx.get("unit") or ""
+    await state.set_state(ConfirmTx.waiting_amount)
+    await state.update_data(tx_id=tx_id)
+    await cb.message.answer(
+        f"🧾 تأیید معامله #{fa_digits(tx_id)}\n"
+        f"نرخ: {money(tx['rate'], currency)} به ازای هر {unit}\n\n"
+        f"مبلغ کل واریزی کاربر را به *{currency}* بفرستید تا معادل «{unit}» محاسبه و به کاربر اعلام شود.\n"
+        "اگر نمی‌خواهید محاسبه شود، عدد 0 را بفرستید.\n\n"
+        "برای انصراف /cancel را بزنید.",
+        parse_mode="Markdown",
+    )
+    await cb.answer()
 
-    # پس از تأیید، ابزار ارتباط با کاربر را به ادمین بده
-    if approve:
-        u = await get_user_by_tg(tx["telegram_id"])
-        uname = (u or {}).get("username")
-        name = (u or {}).get("full_name") or "کاربر"
-        info = (
-            f"🤝 *ارتباط با کاربر معامله {fa_digits(tx_id)}*\n\n"
-            f"👤 {name}\n"
-            f"🆔 آیدی: `{fa_digits(tx['telegram_id'])}`\n"
-            + (f"🔗 یوزرنیم: @{uname}\n" if uname else "🔗 یوزرنیم: ندارد (از دکمهٔ زیر پیام بده)\n")
+
+@router.message(ConfirmTx.waiting_amount)
+async def confirm_amount(msg: Message, state: FSMContext):
+    data = await state.get_data()
+    tx_id = data.get("tx_id")
+    tx = await get_transaction(tx_id) if tx_id else None
+    if not tx:
+        await state.clear()
+        await msg.answer("معامله یافت نشد.")
+        return
+    if tx["status"] in ("completed", "canceled"):
+        await state.clear()
+        await msg.answer("این معامله قبلاً بررسی شده است.")
+        return
+    try:
+        amount = parse_int(msg.text)
+    except (ValueError, TypeError):
+        await msg.answer("مبلغ نامعتبر است. یک عدد بفرستید (یا 0 برای رد کردن محاسبه).")
+        return
+    await state.clear()
+    await _approve_tx(msg, tx, amount, msg.from_user.id, msg.bot)
+    if amount > 0 and int(tx.get("rate") or 0) > 0:
+        equivalent = int(round(amount / int(tx["rate"])))
+        await msg.answer(
+            f"✅ معامله #{fa_digits(tx_id)} تأیید شد.\n"
+            f"معادل اعلام‌شده به کاربر: {num(equivalent)} {tx.get('unit') or ''}"
         )
-        try:
-            await cb.bot.send_message(
-                cb.from_user.id, info,
-                reply_markup=contact_user_kb(tx["telegram_id"], uname),
-                parse_mode="Markdown",
-            )
-        except Exception as e:
-            logger.warning("send contact tools failed: %s", e)
-
-
-@router.callback_query(F.data.startswith("txok:"))
-async def cb_txok(cb: CallbackQuery):
-    await _finalize_tx(cb, int(cb.data.split(":", 1)[1]), approve=True)
+    else:
+        await msg.answer(f"✅ معامله #{fa_digits(tx_id)} تأیید شد.")
 
 
 @router.callback_query(F.data.startswith("txno:"))
 async def cb_txno(cb: CallbackQuery):
-    await _finalize_tx(cb, int(cb.data.split(":", 1)[1]), approve=False)
+    tx_id = int(cb.data.split(":", 1)[1])
+    tx = await get_transaction(tx_id)
+    if not tx:
+        await cb.answer("معامله یافت نشد.", show_alert=True)
+        return
+    if tx["status"] in ("completed", "canceled"):
+        await cb.answer("این معامله قبلاً بررسی شده است.", show_alert=True)
+        return
+    await update_transaction(tx_id, status="canceled")
+    try:
+        await cb.bot.send_message(
+            tx["telegram_id"],
+            f"❌ فیش معامله شماره {fa_digits(tx_id)} تأیید نشد.\n"
+            "برای پیگیری با پشتیبانی در ارتباط باشید.",
+        )
+    except Exception as e:
+        logger.warning("notify user on reject failed: %s", e)
+    try:
+        if cb.message.caption is not None:
+            await cb.message.edit_caption(caption=(cb.message.caption or "") + "\n\n❌ رد شد.", parse_mode=None)
+        else:
+            await cb.message.edit_text((cb.message.text or "") + "\n\n❌ رد شد.", parse_mode=None)
+    except Exception:
+        pass
+    await cb.answer("رد شد.")
 
 
 # ─────────────────────────── پیام مستقیم ادمین به کاربر (از طریق ربات) ───────────────────────────
@@ -663,10 +743,11 @@ async def wallet_amount(msg: Message, state: FSMContext):
 @router.callback_query(F.data == "adm:live")
 async def cb_live(cb: CallbackQuery):
     await cb.answer("در حال دریافت…")
-    from core.rates import fetch_usd_rub
+    from core.rates import fetch_usd_rub, last_source
     rates = await fetch_rates(force=True)
     usd_rub = await fetch_usd_rub(force=True)
-    lines = ["📈 *نرخ لحظه‌ای سایت (تومان)*", ""]
+    src = last_source() or "—"
+    lines = [f"📈 *نرخ لحظه‌ای (تومان)* — منبع: {src}", ""]
     if rates.get("rub"):
         lines.append(f"روبل — خرید: {toman(rates['rub']['buy'])} | فروش: {toman(rates['rub']['sell'])}")
     if rates.get("usd"):

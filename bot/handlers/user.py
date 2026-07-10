@@ -27,6 +27,8 @@ from bot.keyboards import (
     category_kb,
     admin_review_kb,
     main_menu,
+    suspended,
+    suspended_kb,
     tiers_kb,
 )
 from bot.states import ReceiptFlow
@@ -228,6 +230,31 @@ async def cb_agree(cb: CallbackQuery):
         unit=unit,
         currency=product.get("currency", "تومان"),
     )
+    currency = product.get("currency", "تومان")
+    unit_txt = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
+
+    # حالت معلق: به‌جای نمایش کارت، کاربر را به هماهنگی مستقیم با پشتیبانی هدایت کن
+    if suspended():
+        head = [
+            "✅ *درخواست شما ثبت شد.*",
+            "",
+            f"🧾 شماره معامله: `{fa_digits(tx_id)}`",
+            f"🔸 {product['title']}",
+        ]
+        if tier_label:
+            head.append(f"📊 {tier_label}")
+        head.append(f"💱 نرخ توافقی هر {unit_txt}: *{money(rate, currency)}*")
+        head.append("")
+        head.append("⏸ در حال حاضر واریز مستقیم موقتاً غیرفعال است.")
+        head.append("لطفاً ابتدا مستقیماً با پشتیبانی هماهنگ کنید؛ سپس اطلاعات واریز به شما داده می‌شود.")
+        text = "\n".join(head)
+        try:
+            await cb.message.edit_text(text, reply_markup=suspended_kb(tx_id), parse_mode="Markdown")
+        except Exception:
+            await cb.message.answer(text, reply_markup=suspended_kb(tx_id), parse_mode="Markdown")
+        await cb.answer()
+        return
+
     # پیام اول: تأیید + نرخ
     confirm = await _confirm_text(product, rate, tier_label, tx_id)
     try:

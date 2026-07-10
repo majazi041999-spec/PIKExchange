@@ -11,8 +11,12 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from core.products import MAIN_MENU
 
+from core.config import SUPPORT_USERNAME
+
 # وضعیت رنگی‌بودن دکمه‌ها (در startup از دیتابیس بارگذاری می‌شود)
 _COLOR_ENABLED = False
+# حالت معلق: واریز مستقیم موقتاً غیرفعال؛ کاربر باید اول با پشتیبانی هماهنگ کند
+_SUSPENDED = False
 
 
 def set_color_enabled(value: bool) -> None:
@@ -22,6 +26,27 @@ def set_color_enabled(value: bool) -> None:
 
 def color_enabled() -> bool:
     return _COLOR_ENABLED
+
+
+def set_suspended(value: bool) -> None:
+    global _SUSPENDED
+    _SUSPENDED = bool(value)
+
+
+def suspended() -> bool:
+    return _SUSPENDED
+
+
+def support_url() -> str | None:
+    """آدرس گفتگوی پشتیبانی از روی SUPPORT_USERNAME (اگر تنظیم شده باشد)."""
+    s = (SUPPORT_USERNAME or "").strip()
+    if not s:
+        return None
+    if s.startswith("http://") or s.startswith("https://"):
+        return s
+    if s.startswith("@"):
+        s = s[1:]
+    return f"https://t.me/{s}"
 
 
 def styled_btn(text: str, data: str | None = None, style: str | None = None,
@@ -111,6 +136,17 @@ def card_kb(tx_id: int) -> InlineKeyboardMarkup:
             [_btn("🔙 بازگشت به منوی اصلی", "menu")],
         ]
     )
+
+
+def suspended_kb(tx_id: int) -> InlineKeyboardMarkup:
+    """در حالت معلق: هماهنگی با پشتیبانی + امکان ارسال فیش پس از هماهنگی."""
+    rows = []
+    url = support_url()
+    if url:
+        rows.append([_btn("🆘 هماهنگی با پشتیبانی", url=url, style="primary")])
+    rows.append([_btn("📤 ارسال فیش واریز", f"receipt:{tx_id}", style="success")])
+    rows.append([_btn("🔙 بازگشت به منوی اصلی", "menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def admin_review_kb(tx_id: int) -> InlineKeyboardMarkup:

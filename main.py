@@ -63,10 +63,11 @@ async def main():
     await init_db()
     logger.info("✅ دیتابیس آماده")
 
-    # بارگذاری وضعیت رنگی‌بودن دکمه‌ها (پیش‌فرض: خاموش)
+    # بارگذاری وضعیت‌های سراسری (رنگ دکمه‌ها و حالت معلق) — پیش‌فرض خاموش
     from core.db import get_setting
-    from bot.keyboards import set_color_enabled
+    from bot.keyboards import set_color_enabled, set_suspended
     set_color_enabled(await get_setting("buttons_colored", "0") == "1")
+    set_suspended(await get_setting("suspended", "0") == "1")
 
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
     dp = Dispatcher(storage=MemoryStorage())

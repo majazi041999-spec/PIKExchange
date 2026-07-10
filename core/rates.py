@@ -50,40 +50,108 @@ def _extract(html: str, code: str) -> Optional[Dict[str, float]]:
     return {"buy": buy_rial / 10.0, "sell": sell_rial / 10.0}
 
 
-async def fetch_rates(force: bool = False) -> Dict[str, Dict[str, float]]:
-    """نرخ روبل و دلار را برمی‌گرداند: {'rub': {'buy','sell'}, 'usd': {...}} به تومان.
-
-    در صورت خطا، آخرین کش موفق برگردانده می‌شود (اگر باشد).
-    """
-    global _CACHE, _CACHE_TS
-    now = time.time()
-    if not force and _CACHE and (now - _CACHE_TS) < CACHE_TTL:
-        return _CACHE
-
-    try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_HEADERS) as client:
-            resp = await client.get(RATE_URL)
-            resp.raise_for_status()
-            html = resp.text
-    except Exception as e:
-        logger.warning("fetch rates failed: %s", e)
-        return _CACHE  # ممکن است خالی باشد
-
+async def _fetch_alanchand() -> Dict[str, Dict[str, float]]:
+    """نرخ روبل/دلار از alanchand (ریال ← تومان)."""
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_HEADERS) as client:
+        resp = await client.get(RATE_URL)
+        resp.raise_for_status()
+        html = resp.text
     data: Dict[str, Dict[str, float]] = {}
     for code in ("rub", "usd"):
         parsed = _extract(html, code)
         if parsed:
             data[code] = parsed
+    return data
 
-    if data.get("rub"):  # حداقل روبل باید موجود باشد تا کش را معتبر بدانیم
-        _CACHE = {**_CACHE, **data}
-        _CACHE_TS = now
-        logger.info(
-            "rates updated | rub buy=%.0f sell=%.0f | usd buy=%.0f",
-            data["rub"]["buy"], data["rub"]["sell"],
-            data.get("usd", {}).get("buy", 0),
+
+def _num(v) -> float:
+    try:
+        return float(str(v).replace(",", "").replace("٬", "").strip())
+    except (TypeError, ValueError):
+        return 0.0
+
+
+async def _fetch_bonbast() -> Dict[str, Dict[str, float]]:
+    """نرخ روبل/دلار از bonbast.com (مقادیر به تومان هستند).
+
+    روش: توکن پویا از صفحهٔ اصلی استخراج و سپس POST به ‎/json‎.
+    اگر ساختار سایت تغییر کند یا در دسترس نباشد، دیکشنری خالی برمی‌گردد.
+    """
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_HEADERS) as client:
+        home = await client.get("https://bonbast.com/")
+        home.raise_for_status()
+        # bonbast یک جفت کلید/مقدار پویا داخل $.post('/json', {...}) می‌گذارد
+        m = re.search(r"\$\.post\(\s*['\"]/json['\"]\s*,\s*\{\s*['\"](\w+)['\"]\s*:\s*['\"](\w+)['\"]", home.text)
+        payload = {m.group(1): m.group(2)} if m else {}
+        resp = await client.post(
+            "https://bonbast.com/json", data=payload,
+            headers={**_HEADERS, "X-Requested-With": "XMLHttpRequest",
+                     "Referer": "https://bonbast.com/"},
         )
+        resp.raise_for_status()
+        j = resp.json()
+
+    data: Dict[str, Dict[str, float]] = {}
+    for code in ("rub", "usd"):
+        sell = _num(j.get(f"{code}1"))   # فروش
+        buy = _num(j.get(f"{code}2"))    # خرید
+        if buy > 0 or sell > 0:
+            data[code] = {"buy": buy or sell, "sell": sell or buy}
+    return data
+
+
+_SOURCES = {
+    "bonbast": _fetch_bonbast,
+    "alanchand": _fetch_alanchand,
+}
+_LAST_SOURCE: str = ""
+
+
+async def _source_order() -> list:
+    from core.db import get_setting
+
+    raw = await get_setting("rate_sources", "bonbast,alanchand")
+    order = [s.strip() for s in raw.split(",") if s.strip() in _SOURCES]
+    return order or ["bonbast", "alanchand"]
+
+
+async def fetch_rates(force: bool = False) -> Dict[str, Dict[str, float]]:
+    """نرخ روبل و دلار (تومان) را با اولویت منابع برمی‌گرداند.
+
+    منابع به‌ترتیب امتحان می‌شوند (پیش‌فرض: bonbast سپس alanchand)؛ اولین منبعی که
+    نرخ روبل معتبر بدهد استفاده می‌شود. در صورت شکست همه، آخرین کش موفق برمی‌گردد.
+    """
+    global _CACHE, _CACHE_TS, _LAST_SOURCE
+    now = time.time()
+    if not force and _CACHE and (now - _CACHE_TS) < CACHE_TTL:
+        return _CACHE
+
+    for name in await _source_order():
+        fn = _SOURCES.get(name)
+        if not fn:
+            continue
+        try:
+            data = await fn()
+        except Exception as e:
+            logger.warning("rate source '%s' failed: %s", name, e)
+            continue
+        if data.get("rub"):
+            _CACHE = {**_CACHE, **data}
+            _CACHE_TS = now
+            _LAST_SOURCE = name
+            logger.info(
+                "rates from %s | rub buy=%.0f sell=%.0f | usd buy=%.0f",
+                name, data["rub"]["buy"], data["rub"]["sell"],
+                data.get("usd", {}).get("buy", 0),
+            )
+            return _CACHE
+
+    logger.warning("all rate sources failed; using cache")
     return _CACHE
+
+
+def last_source() -> str:
+    return _LAST_SOURCE
 
 
 def _column_value(rate: Dict[str, float], column: str) -> float:

@@ -28,3 +28,8 @@ class AddCard(StatesGroup):
     """افزودن کارت جدید: برچسب (نام/بانک) سپس متن کامل کارت."""
     waiting_label = State()
     waiting_text = State()
+
+
+class ConfirmTx(StatesGroup):
+    """تأیید فیش: دریافت مبلغ واریزی برای محاسبهٔ معادل."""
+    waiting_amount = State()
