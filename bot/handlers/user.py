@@ -127,7 +127,7 @@ async def cb_product(cb: CallbackQuery):
     if product["type"] == "rub_tiered":
         text = (
             f"{product['title']}\n\n"
-            "لطفاً نوع فیش و حجم معامله‌ی خود را انتخاب کنید تا نرخ لحظه‌ای اعلام شود:"
+            "لطفاً گزینهٔ متناسب با حجم معاملهٔ خود را انتخاب کنید تا نرخ لحظه‌ای اعلام شود:"
         )
         kb = tiers_kb(pid, product["tiers"], back_data=back)
         try:
@@ -250,6 +250,28 @@ async def cb_agree(cb: CallbackQuery):
     currency = product.get("currency", "تومان")
     unit_txt = product.get("unit") or ("روبل" if product.get("base") == "rub" else "دلار")
 
+    # خرید تومان: پس از موافقت، کارت نمایش داده نمی‌شود؛ کاربر برای دریافت کارت
+    # به پشتیبانی هدایت می‌شود (طبق درخواست مالک).
+    if product.get("card_delivery") == "support":
+        head = [
+            "✅ *درخواست شما ثبت شد.*",
+            "",
+            f"🧾 شماره معامله: `{fa_digits(tx_id)}`",
+            f"🔸 {product['title']}",
+        ]
+        if tier_label:
+            head.append(f"📊 {tier_label}")
+        head.append(f"💱 نرخ توافقی هر {unit_txt}: *{money(rate, currency)}*")
+        head.append("")
+        head.append("📞 برای دریافت کارت و ادامه‌ی معامله، لطفاً به پشتیبانی پیام دهید.")
+        text = "\n".join(head)
+        try:
+            await cb.message.edit_text(text, reply_markup=support_kb(), parse_mode="Markdown")
+        except Exception:
+            await cb.message.answer(text, reply_markup=support_kb(), parse_mode="Markdown")
+        await cb.answer()
+        return
+
     # حالت معلق: به‌جای نمایش کارت، کاربر را به هماهنگی مستقیم با پشتیبانی هدایت کن
     if suspended():
         head = [
@@ -283,7 +305,8 @@ async def cb_agree(cb: CallbackQuery):
     card = await get_active_card()
     has_card = card and (card.get("image") or (card.get("text") or "").strip())
     if has_card:
-        kb = card_kb(tx_id, card.get("card_number", ""), card.get("sheba", ""))
+        kb = card_kb(tx_id, card.get("card_number", ""), card.get("sheba", ""),
+                     card.get("account", ""))
         if card.get("image"):
             await cb.message.answer_photo(
                 card["image"], caption=(card.get("text") or None),

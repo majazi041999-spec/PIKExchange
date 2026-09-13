@@ -31,7 +31,7 @@ async def get_active_card() -> Optional[dict]:
 
 
 async def add_card(label: str, text: str = "", image: str = "",
-                   card_number: str = "", sheba: str = "") -> int:
+                   card_number: str = "", sheba: str = "", account: str = "") -> int:
     cards = await get_cards()
     new_id = (max((int(c.get("id", 0)) for c in cards), default=0) + 1)
     cards.append({
@@ -41,12 +41,27 @@ async def add_card(label: str, text: str = "", image: str = "",
         "image": image,              # file_id عکس کارت (اختیاری)
         "card_number": card_number,  # برای دکمهٔ کپی
         "sheba": sheba,              # برای دکمهٔ کپی
+        "account": account,          # شماره حساب — برای دکمهٔ کپی
     })
     await set_json("cards", cards)
     # اگر اولین کارت است، همان را فعال کن
     if len(cards) == 1:
         await set_setting("active_card_id", str(new_id))
     return new_id
+
+
+async def set_card_account(card_id: int, account: str) -> bool:
+    """شماره حساب یک کارت موجود را ثبت/ویرایش می‌کند (برای دکمهٔ کپی)."""
+    cards = await get_cards()
+    found = False
+    for c in cards:
+        if int(c.get("id", 0)) == int(card_id):
+            c["account"] = account
+            found = True
+            break
+    if found:
+        await set_json("cards", cards)
+    return found
 
 
 async def delete_card(card_id: int) -> None:

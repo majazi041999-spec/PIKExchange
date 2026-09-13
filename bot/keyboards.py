@@ -159,15 +159,19 @@ def support_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def card_kb(tx_id: int, card_number: str = "", sheba: str = "") -> InlineKeyboardMarkup:
-    """کیبورد صفحهٔ کارت: دکمه‌های کپی (شماره کارت/شبا) + ارسال فیش + بازگشت."""
+def card_kb(tx_id: int, card_number: str = "", sheba: str = "",
+            account: str = "") -> InlineKeyboardMarkup:
+    """کیبورد صفحهٔ کارت: دکمه‌های کپی (شماره کارت/شبا/حساب) + ارسال فیش + بازگشت."""
     rows = []
     cnum = _copy_btn("📋 کپی شماره کارت", card_number)
     csheba = _copy_btn("📋 کپی شماره شبا", sheba)
+    cacct = _copy_btn("📋 کپی شماره حساب", account)
     if cnum:
         rows.append([cnum])
     if csheba:
         rows.append([csheba])
+    if cacct:
+        rows.append([cacct])
     rows.append([_btn("📤 ارسال فیش واریز", f"receipt:{tx_id}", style="success")])
     rows.append([_btn("🔙 بازگشت به منوی اصلی", "menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

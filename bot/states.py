@@ -26,11 +26,12 @@ class AdminMessageUser(StatesGroup):
 
 
 class AddCard(StatesGroup):
-    """افزودن کارت جدید: برچسب، سپس عکس/متن کارت، سپس شماره کارت و شبا (برای دکمهٔ کپی)."""
+    """افزودن کارت جدید: برچسب، عکس/متن کارت، شماره کارت، شبا و شماره حساب (برای دکمهٔ کپی)."""
     waiting_label = State()
     waiting_content = State()   # عکس یا متن
     waiting_number = State()    # شماره کارت (برای کپی)
     waiting_sheba = State()     # شماره شبا (برای کپی)
+    waiting_account = State()   # شماره حساب (برای کپی)
 
 
 class PayoutFlow(StatesGroup):

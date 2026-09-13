@@ -19,7 +19,9 @@ from core.db import (
     transaction_stats,
     update_transaction,
 )
-from core.cards import add_card, delete_card, get_active_card, get_cards, set_active_card
+from core.cards import (
+    add_card, delete_card, get_active_card, get_cards, set_active_card, set_card_account,
+)
 from core.products import PRODUCT_ORDER, get_product, get_products, save_product
 from core.rates import compute_simple_rate, compute_tier_rate, fetch_rates
 from core.utils import en_digits, fa_digits, money, num, parse_int, toman
@@ -166,9 +168,10 @@ async def _product_view(pid: str):
         lines.append("*پله‌های حجمی:*")
         for t in p["tiers"]:
             mx = "بی‌نهایت" if not t.get("max") else num(t["max"])
-            lines.append(
-                f"• {t['label']}\n   بازه: {num(t.get('min',0))} تا {mx} تومان | ضریب: {fa_digits(t['mult'])}"
-            )
+            detail = f"• {t['label']}\n   بازه: {num(t.get('min',0))} تا {mx} | ضریب: {fa_digits(t['mult'])}"
+            if "offset" in t:
+                detail += f" | آفست: {fa_digits(t.get('offset',0))} {currency}"
+            lines.append(detail)
             kb.row(
                 _b(f"✏️ برچسب «{t['key']}»", f"pe:{pid}:tlbl:{t['key']}"),
                 _b("⚖️ ضریب", f"pe:{pid}:tmult:{t['key']}"),
@@ -177,6 +180,8 @@ async def _product_view(pid: str):
                 _b("↧ سقف پایین", f"pe:{pid}:tmin:{t['key']}"),
                 _b("↥ سقف بالا", f"pe:{pid}:tmax:{t['key']}"),
             )
+            if "offset" in t:
+                kb.row(_b("➕➖ آفست این پله", f"pe:{pid}:toffset:{t['key']}"))
     elif p["type"] == "rub_single":
         lines.append(f"ضریب: *{fa_digits(p.get('mult',1))}*")
         kb.row(_b("⚖️ ویرایش ضریب", f"pe:{pid}:mult:-"),
@@ -251,9 +256,10 @@ async def cb_product_edit(cb: CallbackQuery, state: FSMContext):
     # ورودی‌های عددی/متنی:
     prompts = {
         "tmult": ("ضریب جدید این پله را بفرستید (مثلاً 0.92):", "float"),
-        "tmin": ("حداقل مبلغ این پله (تومان) را بفرستید (0 برای بدون حد پایین):", "int"),
-        "tmax": ("حداکثر مبلغ این پله (تومان) را بفرستید (0 برای بی‌نهایت):", "int"),
+        "tmin": ("حداقل مبلغ این پله را بفرستید (0 برای بدون حد پایین):", "int"),
+        "tmax": ("حداکثر مبلغ این پله را بفرستید (0 برای بی‌نهایت):", "int"),
         "tlbl": ("برچسب جدید این پله را بفرستید:", "text"),
+        "toffset": ("آفست این پله را بفرستید — عدد ثابتی که به نرخ اضافه/کم می‌شود (مثلاً -300 یا 0):", "int"),
         "mult": ("ضریب جدید را بفرستید (مثلاً 0.965 یا 1):", "float"),
         "lbl": ("برچسب جدید را بفرستید:", "text"),
         "manual": ("نرخ/مبنای دستی (به ازای هر واحد) را بفرستید (0 برای استفاده از منبع خودکار):", "int"),
@@ -291,6 +297,7 @@ async def _card_view():
                 lines.append(f"دکمهٔ کپی شماره کارت: {active['card_number']}")
             if active.get("sheba"):
                 lines.append(f"دکمهٔ کپی شبا: {active['sheba']}")
+            lines.append(f"دکمهٔ کپی شماره حساب: {active.get('account') or '—'}")
             if active.get("text"):
                 lines.append("")
                 lines.append("متن نمایش‌داده‌شده:")
@@ -307,6 +314,8 @@ async def _card_view():
             _b(f"{mark} {label}", f"cardsel:{c['id']}", style="success" if c["id"] == active_id else None),
             _b("🗑 حذف", f"carddel:{c['id']}", style="danger"),
         )
+    if active_id is not None:
+        kb.row(_b("🏦 ثبت/ویرایش شماره حساب (کارت فعال)", f"cardacc:{active_id}", style="primary"))
     kb.row(_b("➕ افزودن کارت", "cardadd", style="success"))
     kb.row(_b("🔙 بازگشت", "admin"))
     return "\n".join(lines), kb.as_markup()
@@ -335,6 +344,19 @@ async def cb_card_delete(cb: CallbackQuery):
     text, kb = await _card_view()
     await _open(cb, text, kb, parse_mode=None)
     await cb.answer("کارت حذف شد 🗑")
+
+
+@router.callback_query(F.data.startswith("cardacc:"))
+async def cb_card_account(cb: CallbackQuery, state: FSMContext):
+    cid = int(cb.data.split(":", 1)[1])
+    await state.set_state(AdminEdit.waiting_value)
+    await state.update_data(save="card_account", card_id=cid, vtype="text")
+    await cb.message.answer(
+        "🏦 شماره حساب کارت فعال را بفرستید (برای دکمهٔ کپی).\n"
+        "برای حذف دکمهٔ کپی شماره حساب، «-» بفرستید.\n\n"
+        "برای انصراف /cancel را بزنید.",
+    )
+    await cb.answer()
 
 
 @router.callback_query(F.data == "cardadd")
@@ -408,13 +430,27 @@ async def card_add_number(msg: Message, state: FSMContext):
 async def card_add_sheba(msg: Message, state: FSMContext):
     raw = (msg.text or "").strip()
     sheba = "" if raw in ("-", "") else en_digits(raw).replace(" ", "")
+    await state.update_data(sheba=sheba)
+    await state.set_state(AddCard.waiting_account)
+    await msg.answer(
+        "۵) شماره حساب را برای *دکمهٔ کپی* بفرستید.\n"
+        "اگر نمی‌خواهید دکمهٔ کپی شماره حساب باشد، «-» بفرستید.",
+        parse_mode="Markdown",
+    )
+
+
+@router.message(AddCard.waiting_account)
+async def card_add_account(msg: Message, state: FSMContext):
+    raw = (msg.text or "").strip()
+    account = "" if raw in ("-", "") else en_digits(raw).replace(" ", "")
     data = await state.get_data()
     cid = await add_card(
         data.get("label", "کارت"),
         text=data.get("text", ""),
         image=data.get("image", ""),
         card_number=data.get("card_number", ""),
-        sheba=sheba,
+        sheba=data.get("sheba", ""),
+        account=account,
     )
     await state.clear()
     await msg.answer(f"✅ کارت ثبت شد (شناسه {fa_digits(cid)}).")
@@ -483,6 +519,16 @@ async def on_value(msg: Message, state: FSMContext):
         await msg.answer("✅ ذخیره شد.\nبرای بازگشت به پنل /admin را بزنید.")
         return
 
+    if data.get("save") == "card_account":
+        raw = (value or "").strip()
+        account = "" if raw in ("-", "") else en_digits(raw).replace(" ", "")
+        ok = await set_card_account(int(data["card_id"]), account)
+        await state.clear()
+        await msg.answer("✅ شماره حساب کارت فعال ذخیره شد." if ok else "کارت یافت نشد.")
+        view, kb = await _card_view()
+        await _open(msg, view, kb, edit=False, parse_mode=None)
+        return
+
     # save == product
     pid = data["pid"]
     field = data["field"]
@@ -493,7 +539,7 @@ async def on_value(msg: Message, state: FSMContext):
         await msg.answer("محصول یافت نشد.")
         return
 
-    if field in ("tmult", "tmin", "tmax", "tlbl"):
+    if field in ("tmult", "tmin", "tmax", "tlbl", "toffset"):
         t = next((x for x in p.get("tiers", []) if x["key"] == tier), None)
         if not t:
             await state.clear()
@@ -507,6 +553,8 @@ async def on_value(msg: Message, state: FSMContext):
             t["max"] = value
         elif field == "tlbl":
             t["label"] = value
+        elif field == "toffset":
+            t["offset"] = value
     elif field == "mult":
         p["mult"] = value
     elif field == "lbl":

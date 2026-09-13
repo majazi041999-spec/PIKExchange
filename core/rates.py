@@ -229,11 +229,18 @@ async def site_base_value(product: dict) -> Optional[float]:
 
 
 async def compute_tier_rate(product: dict, tier: dict) -> Optional[int]:
-    """نرخ یک پله از محصول پله‌ای را حساب می‌کند (تومان به ازای هر واحد)."""
+    """نرخ یک پله از محصول پله‌ای را حساب می‌کند (تومان به ازای هر واحد).
+
+    فرمول: مبنای سایت × ضریب پله + آفست پله. آفست اختیاری است و پیش‌فرض ۰؛
+    برای پله‌های تینکوف/تک‌فیش (روبل) آفست وجود ندارد، ولی پله‌های «خرید تومان»
+    با یک آفست ثابت (مثلاً ۳۰۰ یا ۴۰۰ تومان زیر نرخ سایت) کار می‌کنند.
+    """
     base = await site_base_toman(product)
     if base is None:
         return None
-    return int(round(base * float(tier.get("mult", 1.0))))
+    mult = float(tier.get("mult", 1.0))
+    offset = float(tier.get("offset", 0) or 0)
+    return int(round(base * mult + offset))
 
 
 async def compute_simple_rate(product: dict) -> Optional[int]:

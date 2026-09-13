@@ -63,6 +63,10 @@ async def main():
     await init_db()
     logger.info("✅ دیتابیس آماده")
 
+    # مهاجرت‌های نسخه‌دار (هماهنگ‌سازی بازنویسی‌های ذخیره‌شده با ساختار جدید)
+    from core.migrations import run_migrations
+    await run_migrations()
+
     # بارگذاری وضعیت‌های سراسری (رنگ دکمه‌ها و حالت معلق) — پیش‌فرض خاموش
     from core.db import get_setting
     from bot.keyboards import set_color_enabled, set_suspended
