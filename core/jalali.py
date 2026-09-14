@@ -58,3 +58,13 @@ def jalali_datetime(dt: datetime | None = None) -> str:
     dt = dt.astimezone(TEHRAN_TZ)
     jy, jm, jd = gregorian_to_jalali(dt.year, dt.month, dt.day)
     return fa_digits(f"{jy:04d}/{jm:02d}/{jd:02d} - {dt.hour:02d}:{dt.minute:02d}")
+
+
+def jalali_from_db(s: str) -> str:
+    """رشتهٔ ``created_at`` ذخیره‌شده (میلادی، به وقت تهران) را به نمایش شمسی+ساعت
+    تبدیل می‌کند؛ اگر قابل‌پارس نبود، رشتهٔ خالی برمی‌گرداند."""
+    try:
+        dt = datetime.strptime(s, "%Y-%m-%d %H:%M:%S").replace(tzinfo=TEHRAN_TZ)
+    except (ValueError, TypeError):
+        return ""
+    return jalali_datetime(dt)

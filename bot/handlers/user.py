@@ -21,6 +21,7 @@ from core.products import back_target, get_category, get_product
 from core.rates import compute_simple_rate, compute_tier_rate
 from core.texts import get_text
 from core.config import SUPPORT_USERNAME
+from core.jalali import jalali_datetime, jalali_from_db
 from core.utils import fa_digits, money, num, toman
 from bot.keyboards import (
     agree_kb,
@@ -93,6 +94,7 @@ async def _rate_block(product: dict, rate: int, tier_label: str = "") -> str:
     return (
         f"{head}\n\n"
         f"💱 نرخ لحظه‌ای هر {unit}: *{money(rate, currency)}*\n"
+        f"🕓 زمان اعلام نرخ: {jalali_datetime()}\n"
         f"⏱ اعتبار نرخ: {fa_digits(RATE_VALIDITY_MINUTES)} دقیقه\n\n"
         f"{rules}"
     )
@@ -202,6 +204,7 @@ async def _confirm_text(product: dict, rate: int, tier_label: str, tx_id: int) -
     if tier_label:
         lines.append(f"📊 {tier_label}")
     lines.append(f"💱 نرخ توافقی هر {unit}: *{money(rate, currency)}*")
+    lines.append(f"🕓 زمان ثبت نرخ: {jalali_datetime()}")
     lines.append("")
     lines.append("💳 اطلاعات کارت واریز را در *پیام بعدی* برای شما ارسال می‌کنیم.")
     lines.append("پس از واریز، دکمه‌ی «📤 ارسال فیش واریز» را بزنید.")
@@ -262,6 +265,7 @@ async def cb_agree(cb: CallbackQuery):
         if tier_label:
             head.append(f"📊 {tier_label}")
         head.append(f"💱 نرخ توافقی هر {unit_txt}: *{money(rate, currency)}*")
+        head.append(f"🕓 زمان ثبت نرخ: {jalali_datetime()}")
         head.append("")
         head.append("📞 برای دریافت کارت و ادامه‌ی معامله، لطفاً به پشتیبانی پیام دهید.")
         text = "\n".join(head)
@@ -283,6 +287,7 @@ async def cb_agree(cb: CallbackQuery):
         if tier_label:
             head.append(f"📊 {tier_label}")
         head.append(f"💱 نرخ توافقی هر {unit_txt}: *{money(rate, currency)}*")
+        head.append(f"🕓 زمان ثبت نرخ: {jalali_datetime()}")
         head.append("")
         head.append("⏸ در حال حاضر واریز مستقیم موقتاً غیرفعال است.")
         head.append("لطفاً ابتدا مستقیماً با پشتیبانی هماهنگ کنید؛ سپس اطلاعات واریز به شما داده می‌شود.")
@@ -380,12 +385,14 @@ async def receive_receipt(msg: Message, state: FSMContext):
 async def _notify_admins_receipt(msg: Message, tx: dict, file_id: str, caption: str):
     # parse_mode=None چون نام/توضیح کاربر ممکن است کاراکترهای مارک‌داون داشته باشد
     uname = f"@{msg.from_user.username}" if msg.from_user.username else "—"
+    rate_time = jalali_from_db(tx.get("created_at", ""))
     admin_caption = (
         f"🧾 فیش جدید — معامله {fa_digits(tx['id'])}\n\n"
         f"🔸 {tx['product_title']}\n"
         + (f"📊 {tx['tier_label']}\n" if tx["tier_label"] else "")
         + f"💱 نرخ: {money(tx['rate'], tx.get('currency', 'تومان'))} به ازای هر {tx['unit']}\n"
-        f"👤 کاربر: {msg.from_user.full_name} ({uname})\n"
+        + (f"🕓 زمان ثبت نرخ: {rate_time}\n" if rate_time else "")
+        + f"👤 کاربر: {msg.from_user.full_name} ({uname})\n"
         f"🆔 آیدی: {fa_digits(msg.from_user.id)}\n"
         + (f"📝 توضیح کاربر: {caption[:400]}\n" if caption else "")
     )

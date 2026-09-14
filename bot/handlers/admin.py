@@ -24,6 +24,7 @@ from core.cards import (
 )
 from core.products import PRODUCT_ORDER, get_product, get_products, save_product
 from core.rates import compute_simple_rate, compute_tier_rate, fetch_rates
+from core.jalali import jalali_datetime, jalali_from_db
 from core.utils import en_digits, fa_digits, money, num, parse_int, toman
 from bot.keyboards import (
     back_menu_kb, color_enabled, contact_user_kb, payout_kb, set_color_enabled,
@@ -650,6 +651,9 @@ async def _approve_tx(cb_or_msg, tx: dict, amount: int, admin_id: int, bot):
     if tx.get("tier_label"):
         lines.append(f"📊 {tx['tier_label']}")
     lines.append(f"💱 نرخ نهایی: {money(rate, currency)} به ازای هر {unit}")
+    rate_time = jalali_from_db(tx.get("created_at", ""))
+    if rate_time:
+        lines.append(f"🕓 زمان ثبت نرخ: {rate_time}")
     if equivalent > 0:
         lines.append(f"💰 مبلغ {money(amount, currency)} به نرخ {fa_digits(rate)} معادل *{num(equivalent)} {unit}* بسته شد.")
 
@@ -874,7 +878,7 @@ async def cb_live(cb: CallbackQuery):
     rates = await fetch_rates(force=True)
     usd_rub = await fetch_usd_rub(force=True)
     src = last_source() or "—"
-    lines = [f"📈 *نرخ لحظه‌ای (تومان)* — منبع: {src}", ""]
+    lines = [f"📈 *نرخ لحظه‌ای (تومان)* — منبع: {src}", f"🕓 زمان: {jalali_datetime()}", ""]
     if rates.get("rub"):
         lines.append(f"روبل — خرید: {toman(rates['rub']['buy'])} | فروش: {toman(rates['rub']['sell'])}")
     if rates.get("usd"):
