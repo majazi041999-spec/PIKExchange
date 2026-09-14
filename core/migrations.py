@@ -17,7 +17,7 @@ from core.products import DEFAULT_PRODUCTS
 logger = logging.getLogger("pik.migrations")
 
 # نسخهٔ فعلی اسکیمای تنظیمات. هر بار که مهاجرت جدیدی افزوده شد، این عدد را زیاد کنید.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 async def _migrate_products() -> None:
@@ -54,6 +54,24 @@ async def _migrate_products() -> None:
 
     if changed:
         await set_json("products", overrides)
+
+
+async def _migrate_product_titles() -> None:
+    """عنوان محصولات از پنل قابل‌ویرایش نیست و باید از کد بیاید. مهاجرت v1 کل
+    دیکشنری پیش‌فرض «خرید تومان» (شامل عنوان قدیمی) را در بازنویسی نوشت؛ اینجا
+    کلید ``title`` را از بازنویسی حذف می‌کنیم تا عنوانِ به‌روزِ کد (با پرچم ایران)
+    نمایش داده شود. برای بقیهٔ محصولات هم اگر عنوان در بازنویسی مانده باشد پاک می‌شود."""
+    overrides = await get_json("products", {})
+    if not isinstance(overrides, dict):
+        return
+    changed = False
+    for pid, ov in overrides.items():
+        if isinstance(ov, dict) and "title" in ov:
+            ov.pop("title", None)
+            changed = True
+    if changed:
+        await set_json("products", overrides)
+        logger.info("removed stored product title overrides (code titles now apply)")
 
 
 async def _migrate_rules_text() -> None:
@@ -97,6 +115,7 @@ async def run_migrations() -> None:
     logger.info("running settings migrations: %s → %s", current, SCHEMA_VERSION)
     try:
         await _migrate_products()
+        await _migrate_product_titles()
         await _migrate_rules_text()
     except Exception as e:
         # مهاجرت نباید مانع بالا آمدن ربات شود؛ فقط لاگ می‌کنیم.
