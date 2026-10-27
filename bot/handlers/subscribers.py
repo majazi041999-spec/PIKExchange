@@ -64,6 +64,7 @@ async def show_user(msg, telegram_id, page=0):
             label = quote["tier_label"] or quote["product_title"]
             text += f"• {escape(label[:100])}: {money(quote['rate'], quote['currency'])}\n  {jalali_from_db(quote['created_at'])}\n"
     kb = InlineKeyboardBuilder()
+    kb.row(_b("💳 کارت‌های این کاربر", f"arc:user:{telegram_id}"))
     if not is_admin(telegram_id):
         action = "unban" if user["is_blocked"] else "ban"
         kb.row(_b("✅ آنبن کاربر" if user["is_blocked"] else "⛔️ بن کاربر", f"subs:{action}:{telegram_id}:{page}"))

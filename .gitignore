@@ -24,3 +24,8 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+
+# Development-only logo audits and intermediate renderings
+assets/banks/official-check/
+assets/banks/raster/
+assets/banks/.upload-cache.json

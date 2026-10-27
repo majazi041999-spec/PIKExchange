@@ -1,0 +1,221 @@
+{
+  "melli": {
+    "name": "ملی",
+    "country": "ir",
+    "aliases": [
+      "ملی",
+      "melli"
+    ]
+  },
+  "mellat": {
+    "name": "ملت",
+    "country": "ir",
+    "aliases": [
+      "ملت",
+      "mellat"
+    ]
+  },
+  "saderat": {
+    "name": "صادرات",
+    "country": "ir",
+    "aliases": [
+      "صادرات",
+      "saderat"
+    ]
+  },
+  "tejarat": {
+    "name": "تجارت",
+    "country": "ir",
+    "aliases": [
+      "تجارت",
+      "tejarat"
+    ]
+  },
+  "sepah": {
+    "name": "سپه",
+    "country": "ir",
+    "aliases": [
+      "سپه",
+      "sepah"
+    ]
+  },
+  "saman": {
+    "name": "سامان",
+    "country": "ir",
+    "aliases": [
+      "سامان",
+      "saman"
+    ]
+  },
+  "blu": {
+    "name": "بلوبانک",
+    "country": "ir",
+    "aliases": [
+      "بلوبانک",
+      "بلو",
+      "blubank",
+      "blu"
+    ]
+  },
+  "mehr": {
+    "name": "مهر ایران",
+    "country": "ir",
+    "aliases": [
+      "مهر ایران",
+      "مهرایران",
+      "mehriran",
+      "کیوبانک"
+    ]
+  },
+  "resalat": {
+    "name": "رسالت",
+    "country": "ir",
+    "aliases": [
+      "رسالت",
+      "resalat"
+    ]
+  },
+  "pasargad": {
+    "name": "پاسارگاد",
+    "country": "ir",
+    "aliases": [
+      "پاسارگاد",
+      "pasargad"
+    ]
+  },
+  "parsian": {
+    "name": "پارسیان",
+    "country": "ir",
+    "aliases": [
+      "پارسیان",
+      "parsian"
+    ]
+  },
+  "refah": {
+    "name": "رفاه",
+    "country": "ir",
+    "aliases": [
+      "رفاه",
+      "refah"
+    ]
+  },
+  "keshavarzi": {
+    "name": "کشاورزی",
+    "country": "ir",
+    "aliases": [
+      "کشاورزی",
+      "keshavarzi"
+    ]
+  },
+  "maskan": {
+    "name": "مسکن",
+    "country": "ir",
+    "aliases": [
+      "مسکن",
+      "maskan"
+    ]
+  },
+  "shahr": {
+    "name": "شهر",
+    "country": "ir",
+    "aliases": [
+      "شهر",
+      "shahr"
+    ]
+  },
+  "novin": {
+    "name": "اقتصاد نوین",
+    "country": "ir",
+    "aliases": [
+      "اقتصاد نوین",
+      "eghtesadnovin"
+    ]
+  },
+  "karafarin": {
+    "name": "کارآفرین",
+    "country": "ir",
+    "aliases": [
+      "کارآفرین",
+      "کارافرین",
+      "karafarin"
+    ]
+  },
+  "sina": {
+    "name": "سینا",
+    "country": "ir",
+    "aliases": [
+      "سینا",
+      "sina"
+    ]
+  },
+  "ayandeh": {
+    "name": "آینده",
+    "country": "ir",
+    "aliases": [
+      "آینده",
+      "ayandeh"
+    ]
+  },
+  "iranzamin": {
+    "name": "ایران زمین",
+    "country": "ir",
+    "aliases": [
+      "ایران زمین",
+      "iranzamin"
+    ]
+  },
+  "tbank": {
+    "name": "تینکوف · Т-Банк",
+    "country": "ru",
+    "aliases": [
+      "تینکوف",
+      "تینکفی",
+      "تینک",
+      "tinkoff",
+      "tbank",
+      "t-bank",
+      "т-банк",
+      "т банк",
+      "тинькофф",
+      "тинькоф"
+    ]
+  },
+  "sber": {
+    "name": "اسبر · Сбер",
+    "country": "ru",
+    "aliases": [
+      "اسبر",
+      "sber",
+      "сбер"
+    ]
+  },
+  "vtb": {
+    "name": "VTB · ВТБ",
+    "country": "ru",
+    "aliases": [
+      "vtb",
+      "втб",
+      "وی تی بی"
+    ]
+  },
+  "alfa": {
+    "name": "آلفا · Альфа",
+    "country": "ru",
+    "aliases": [
+      "الفا",
+      "آلفا",
+      "alfa",
+      "альфа"
+    ]
+  },
+  "ozon": {
+    "name": "اوزون · Ozon",
+    "country": "ru",
+    "aliases": [
+      "ozon",
+      "озон",
+      "اوزون",
+      "ازون"
+    ]
+  }
+}

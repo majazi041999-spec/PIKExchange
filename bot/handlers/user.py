@@ -1,5 +1,6 @@
 """هندلرهای کاربر عادی: منو، مشاهده نرخ، قوانین، دریافت کارت و ارسال فیش."""
 import logging
+from html import escape
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
@@ -17,6 +18,7 @@ from core.db import (
 )
 from aiogram.filters import Command
 from core.cards import get_active_card
+from core.banks import bank_html, find_bank
 from core.products import back_target, get_category, get_product
 from core.rates import compute_simple_rate, compute_tier_rate
 from core.texts import get_text
@@ -319,13 +321,17 @@ async def cb_agree(cb: CallbackQuery):
     if has_card:
         kb = card_kb(tx_id, card.get("card_number", ""), card.get("sheba", ""),
                      card.get("account", ""))
+        bank_id = find_bank(card.get("label", ""))
+        body = escape(card.get("text") or "")
+        if bank_id:
+            body = bank_html(bank_id) + "\n\n" + body
         if card.get("image"):
             await cb.message.answer_photo(
-                card["image"], caption=(card.get("text") or None),
-                reply_markup=kb, parse_mode=None,
+                card["image"], caption=(body or None),
+                reply_markup=kb, parse_mode="HTML",
             )
         else:
-            await cb.message.answer(card["text"], reply_markup=kb, parse_mode=None)
+            await cb.message.answer(body, reply_markup=kb, parse_mode="HTML")
     else:
         await cb.message.answer(
             "💳 اطلاعات کارت هنوز ثبت نشده است. لطفاً برای دریافت شماره کارت با پشتیبانی هماهنگ کنید،\n"
@@ -417,15 +423,20 @@ async def _notify_admins_receipt(msg: Message, tx: dict, file_id: str, caption: 
 
 # ─────────────────────────── ثبت کارت روسی کاربر (فاکتور واریز روبل) ───────────────────────────
 
-def _build_invoice(payout_text: str, equivalent: int) -> str:
+def _build_invoice(payout_text: str, equivalent: int, as_html: bool = False) -> str:
     """فاکتور واریز روبل را از اطلاعات کاربر می‌سازد."""
     lines = [l.strip() for l in (payout_text or "").splitlines() if l.strip()]
     if len(lines) >= 4:
         card, phone, name = lines[0], lines[1], lines[2]
         bank = " ".join(lines[3:])
-        parts = [card, "", phone, "", name, "", f"{bank} 💵"]
+        if as_html:
+            bank_id = find_bank(bank)
+            bank_label = bank_html(bank_id) if bank_id else escape(bank)
+            parts = [f"<code>{escape(card)}</code>", "", f"<code>{escape(phone)}</code>", "", escape(name), "", bank_label]
+        else:
+            parts = [card, "", phone, "", name, "", f"{bank} 💵"]
     else:
-        parts = [(payout_text or "").strip()]
+        parts = [escape((payout_text or "").strip()) if as_html else (payout_text or "").strip()]
     if equivalent and equivalent > 0:
         # عدد روبل با ارقام لاتین (هماهنگ با کارت/تلفن روسی)
         parts += ["", f"{equivalent:,} ₽"]
@@ -468,19 +479,24 @@ async def receive_payout(msg: Message, state: FSMContext):
         await msg.answer("لطفاً اطلاعات حساب را به‌صورت متن (۴ خط) بفرستید.")
         return
     await update_transaction(tx_id, payout_info=text)
+    from core.card_archive import archive_payout
+    try:
+        await archive_payout(msg.from_user.id, text)
+    except Exception:
+        logger.exception("customer card archive failed")
     await state.clear()
-    invoice = _build_invoice(text, int(tx.get("equivalent") or 0))
+    invoice = _build_invoice(text, int(tx.get("equivalent") or 0), as_html=True)
     await msg.answer(
         "✅ اطلاعات حساب شما ثبت شد و برای شروع تسویه به پشتیبانی ارسال گردید.\n\n"
         "🧾 فاکتور شما:\n————————\n" + invoice + "\n————————\n"
         "به‌زودی برای واریز روبل با شما هماهنگ می‌شود. 🙏",
-        reply_markup=back_menu_kb(), parse_mode=None,
+        reply_markup=back_menu_kb(), parse_mode="HTML",
     )
     uname = f"@{msg.from_user.username}" if msg.from_user.username else "—"
     admin_text = (
         f"🧾 فاکتور واریز روبل — معامله {fa_digits(tx_id)}\n"
-        f"👤 {msg.from_user.full_name} ({uname}) | 🆔 {fa_digits(msg.from_user.id)}\n"
-        f"🔸 {tx['product_title']}\n"
+        f"👤 {escape(msg.from_user.full_name)} ({escape(uname)}) | 🆔 {fa_digits(msg.from_user.id)}\n"
+        f"🔸 {escape(tx['product_title'])}\n"
         "————————\n" + invoice
     )
     for aid in ADMIN_IDS:
@@ -488,7 +504,7 @@ async def receive_payout(msg: Message, state: FSMContext):
             await msg.bot.send_message(
                 aid, admin_text,
                 reply_markup=contact_user_kb(msg.from_user.id, msg.from_user.username),
-                parse_mode=None,
+                parse_mode="HTML",
             )
         except Exception as e:
             logger.warning("notify admin invoice %s failed: %s", aid, e)

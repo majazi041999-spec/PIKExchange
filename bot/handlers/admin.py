@@ -66,6 +66,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
     kb.row(_b("📊 تراکنش‌ها", "adm:tx", style="success"))
     kb.row(_b("📒 حسابداری ورودی / خروجی", "acc:home", style="success"))
     kb.row(_b("👥 مشترکین و درخواست نرخ", "subs:list:0", style="primary"))
+    kb.row(_b("🗂 بایگانی کارت‌های کاربران", "arc:home", style="primary"))
     kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live", style="primary"),
            _b("📢 پیام همگانی", "adm:bcast", style="danger"))
     color_txt = "🎨 دکمه‌های رنگی: روشن ✅" if color_enabled() else "🎨 دکمه‌های رنگی: خاموش ⛔️"

@@ -79,6 +79,25 @@ async def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_rate_requests_user ON rate_requests(user_id, id DESC);
 
+            CREATE TABLE IF NOT EXISTS customer_cards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                owner_name TEXT NOT NULL,
+                name_key TEXT NOT NULL,
+                bank_id TEXT NOT NULL,
+                card_number TEXT NOT NULL DEFAULT '',
+                iban TEXT NOT NULL DEFAULT '',
+                account TEXT NOT NULL DEFAULT '',
+                phone TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT '',
+                user_tg_id INTEGER,
+                created_by INTEGER NOT NULL,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_customer_cards_name ON customer_cards(name_key);
+            CREATE INDEX IF NOT EXISTS idx_customer_cards_user ON customer_cards(user_tg_id, is_deleted);
+
             CREATE TABLE IF NOT EXISTS ledger (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 admin_id INTEGER NOT NULL,
