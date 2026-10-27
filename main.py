@@ -63,7 +63,7 @@ async def main():
 
     from core.config import ADMIN_IDS, BOT_TOKEN
     from core.db import init_db
-    from bot.handlers import accounting, admin, card_archive, subscribers, user, web_access
+    from bot.handlers import accounting, admin, card_archive, navigation, subscribers, user, web_access
 
     if not BOT_TOKEN or len(BOT_TOKEN) < 20:
         logger.error("❌ BOT_TOKEN در فایل .env تنظیم نشده!")
@@ -91,7 +91,8 @@ async def main():
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
     dp = Dispatcher(storage=MemoryStorage())
 
-    # ترتیب مهم است: admin (فیلترشده برای ادمین) قبل از user
+    # شروع مجدد باید قبل از تمام حالت‌های ورود اطلاعات بررسی شود.
+    dp.include_router(navigation.router)
     dp.include_router(web_access.router)
     dp.include_router(admin.router)
     dp.include_router(accounting.router)

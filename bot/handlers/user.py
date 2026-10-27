@@ -38,6 +38,7 @@ from bot.keyboards import (
     suspended,
     suspended_kb,
     tiers_kb,
+    restart_keyboard,
 )
 from bot.states import PayoutFlow, ReceiptFlow
 from bot.access import SubscriberAccess
@@ -56,10 +57,11 @@ STATUS_LABELS = {
 }
 
 
-async def _send_menu(target: Message, uid: int, greeting: bool = True):
+async def _send_menu(target: Message, uid: int):
     welcome = await get_text("text_welcome")
     kb = await main_menu(is_admin(uid))
-    await target.answer(welcome, reply_markup=kb, parse_mode="Markdown")
+    await target.answer(welcome, reply_markup=restart_keyboard(), parse_mode="Markdown")
+    await target.answer("🏠 منوی اصلی\nلطفاً یکی از گزینه‌ها را انتخاب کنید:", reply_markup=kb, parse_mode=None)
 
 
 @router.message(CommandStart())

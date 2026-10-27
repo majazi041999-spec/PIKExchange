@@ -6,7 +6,7 @@
 رنگی‌بودن دکمه‌ها با یک کلید سراسری کنترل می‌شود (پیش‌فرض: خاموش). ادمین می‌تواند
 از پنل آن را روشن/خاموش کند؛ مقدار در دیتابیس (کلید ``buttons_colored``) ذخیره می‌شود.
 """
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from core.products import MAIN_MENU
@@ -82,6 +82,18 @@ def styled_btn(text: str, data: str | None = None, style: str | None = None,
 
 
 _btn = styled_btn
+
+RESTART_TEXT = "🔄 شروع مجدد"
+
+
+def restart_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=RESTART_TEXT)]],
+        resize_keyboard=True,
+        is_persistent=True,
+        one_time_keyboard=False,
+        input_field_placeholder="پیام خود را بنویسید یا شروع مجدد را بزنید",
+    )
 
 
 async def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
