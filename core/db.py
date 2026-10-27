@@ -66,6 +66,19 @@ async def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_tx_user ON transactions(user_id);
             CREATE INDEX IF NOT EXISTS idx_tx_status ON transactions(status);
 
+            CREATE TABLE IF NOT EXISTS rate_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                product_id TEXT NOT NULL,
+                product_title TEXT NOT NULL,
+                tier_label TEXT NOT NULL DEFAULT '',
+                rate INTEGER NOT NULL,
+                currency TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_rate_requests_user ON rate_requests(user_id, id DESC);
+
             CREATE TABLE IF NOT EXISTS ledger (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 admin_id INTEGER NOT NULL,
@@ -172,7 +185,7 @@ async def get_or_create_user(
             return dict(row)
 
         await conn.execute(
-            "INSERT INTO users(telegram_id, username, full_name, created_at) VALUES(?,?,?,?)",
+            "INSERT OR IGNORE INTO users(telegram_id, username, full_name, created_at) VALUES(?,?,?,?)",
             (telegram_id, username, full_name, _now()),
         )
         await conn.commit()

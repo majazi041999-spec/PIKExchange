@@ -1,9 +1,11 @@
-"""دریافت نرخ لحظه‌ای از alanchand و محاسبه‌ی نرخ محصولات.
+"""Bonbast transaction reference in toman, with short-lived caching.
 
-نرخ‌های سایت به **ریال** هستند و اینجا به **تومان** (÷۱۰) تبدیل می‌شوند.
-یک کش کوتاه‌مدت هم داریم تا در هر کلیک کاربر به سایت درخواست نزنیم.
+Alanchand is read separately for the comparison dashboard; its rial values are
+converted to toman and never replace the transaction reference.
 """
+import asyncio
 import logging
+import math
 import re
 import time
 from typing import Dict, Optional
@@ -11,6 +13,7 @@ from typing import Dict, Optional
 import httpx
 
 from core.config import RATE_URL
+from core.utils import en_digits
 
 logger = logging.getLogger("pik.rates")
 
@@ -26,32 +29,28 @@ _HEADERS = {
 _CACHE: Dict[str, Dict[str, float]] = {}
 _CACHE_TS: float = 0.0
 CACHE_TTL = 60  # ثانیه
+REFERENCE_MAX_AGE = 300
+_REFERENCE_LOCK = asyncio.Lock()
+_REFERENCE_ERROR = False
 
 
 def _extract(html: str, code: str) -> Optional[Dict[str, float]]:
     """buy/sell یک ارز را از HTML سایت استخراج می‌کند (به تومان)."""
-    # سطر مربوطه با onclick شامل currencies-price/<code>' مشخص می‌شود
-    pattern = (
-        r"currencies-price/" + re.escape(code) + r"'"      # لنگر روی همان ارز
-        r".*?buyPrice[^>]*>\s*([\d,]+)"                      # قیمت خرید
-        r".*?sellPrice[^>]*>\s*([\d,]+)"                     # قیمت فروش
-    )
-    m = re.search(pattern, html, re.S | re.I)
-    if not m:
+    row = re.search(r'currencies-price/' + re.escape(code) + r'["\'][\s\S]*?</tr>', html)
+    if not row:
         return None
-    try:
-        buy_rial = float(m.group(1).replace(",", ""))
-        sell_rial = float(m.group(2).replace(",", ""))
-    except ValueError:
-        return None
-    if buy_rial <= 0 or sell_rial <= 0:
+    buy = re.search(r'buyPrice[^>]*>\s*([\d,٬]+)', row[0])
+    sell = re.search(r'sellPrice[^>]*>\s*([\d,٬]+)', row[0])
+    buy_rial = _num(buy[1]) if buy else 0
+    sell_rial = _num(sell[1]) if sell else 0
+    if not buy_rial or not sell_rial or buy_rial > sell_rial:
         return None
     # ریال ← تومان
     return {"buy": buy_rial / 10.0, "sell": sell_rial / 10.0}
 
 
 async def _fetch_alanchand() -> Dict[str, Dict[str, float]]:
-    """نرخ روبل/دلار از alanchand (ریال ← تومان)."""
+    """نرخ روبل/دلار و شاخص تتر از alanchand (ریال ← تومان)."""
     async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_HEADERS) as client:
         resp = await client.get(RATE_URL)
         resp.raise_for_status()
@@ -61,12 +60,19 @@ async def _fetch_alanchand() -> Dict[str, Dict[str, float]]:
         parsed = _extract(html, code)
         if parsed:
             data[code] = parsed
+    card = re.search(r'crypto-price/usdt["\']([\s\S]*?)(?=<div class="col-md-4 mb-3">|$)', html)
+    tether = re.search(r'class="fw-bold[^"\n]*"[^>]*>\s*([\d,]+)', card[1]) if card else None
+    if tether:
+        value = _num(tether.group(1)) / 10
+        if value > 0:
+            data["usdt"] = {"last": value}
     return data
 
 
 def _num(v) -> float:
     try:
-        return float(str(v).replace(",", "").replace("٬", "").strip())
+        value = float(en_digits(v).replace(",", "").replace("٬", "").replace("٫", ".").strip())
+        return value if math.isfinite(value) and value > 0 else 0.0
     except (TypeError, ValueError):
         return 0.0
 
@@ -74,12 +80,11 @@ def _num(v) -> float:
 async def _fetch_bonbast() -> Dict[str, Dict[str, float]]:
     """نرخ روبل/دلار از bonbast.com (مقادیر به تومان هستند).
 
-    روش (مطابق کتابخانه‌های رسمی bonbast):
-      ۱) GET صفحهٔ اصلی با کوکی ``rf_bb=true; st_bb=0`` و استخراج توکن که بین
-         ``{ data:"`` و ``",`` قرار دارد.
-      ۲) POST به ‎/json‎ با بدنهٔ ``data=<token>&webdriver=false``.
+    روش:
+      ۱) GET صفحهٔ اصلی با کوکی ``rf_bb=true; st_bb=0`` و استخراج param.
+      ۲) POST به ‎/json‎ با بدنهٔ ``param=<token>``.
       ۳) پاسخ JSON کلیدهای ``usd1/usd2`` و ``rub1/rub2`` دارد (تومان).
-    اگر در دسترس نباشد یا ساختار عوض شود، دیکشنری خالی برمی‌گردد و به منبع بعدی می‌رود.
+    اگر ساختار عوض شود، نرخ معتبر برنمی‌گردد و منبع دیگری جایگزین نمی‌شود.
     """
     headers = {**_HEADERS, "Cookie": "rf_bb=true; st_bb=0"}
     async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=headers) as client:
@@ -99,59 +104,40 @@ async def _fetch_bonbast() -> Dict[str, Dict[str, float]]:
     for code in ("rub", "usd"):
         sell = _num(j.get(f"{code}1"))
         buy = _num(j.get(f"{code}2"))
-        if sell > 0 or buy > 0:
-            data[code] = {"buy": buy or sell, "sell": sell or buy}
+        if sell > 0 and buy > 0 and buy <= sell:
+            data[code] = {"buy": buy, "sell": sell}
     return data
 
 
-_SOURCES = {
-    "bonbast": _fetch_bonbast,
-    "alanchand": _fetch_alanchand,
-}
 _LAST_SOURCE: str = ""
 
 
-async def _source_order() -> list:
-    from core.db import get_setting
-
-    raw = await get_setting("rate_sources", "bonbast,alanchand")
-    order = [s.strip() for s in raw.split(",") if s.strip() in _SOURCES]
-    return order or ["bonbast", "alanchand"]
-
-
 async def fetch_rates(force: bool = False) -> Dict[str, Dict[str, float]]:
-    """نرخ روبل و دلار (تومان) را با اولویت منابع برمی‌گرداند.
+    """Only Bonbast determines transaction rates; comparison providers cannot replace it."""
+    global _CACHE, _CACHE_TS, _LAST_SOURCE, _REFERENCE_ERROR
+    async with _REFERENCE_LOCK:
+        now = time.time()
+        if not force and _CACHE and (now - _CACHE_TS) < CACHE_TTL:
+            return _CACHE
+        try:
+            data = await _fetch_bonbast()
+            if not data.get("rub"):
+                raise ValueError("no ruble quote")
+        except Exception as e:
+            _REFERENCE_ERROR = True
+            logger.warning("Bonbast reference unavailable (%s)", type(e).__name__)
+            return _CACHE if _CACHE and time.time() - _CACHE_TS <= REFERENCE_MAX_AGE else {}
 
-    منابع به‌ترتیب امتحان می‌شوند (پیش‌فرض: bonbast سپس alanchand)؛ اولین منبعی که
-    نرخ روبل معتبر بدهد استفاده می‌شود. در صورت شکست همه، آخرین کش موفق برمی‌گردد.
-    """
-    global _CACHE, _CACHE_TS, _LAST_SOURCE
-    now = time.time()
-    if not force and _CACHE and (now - _CACHE_TS) < CACHE_TTL:
+        _CACHE = data
+        _CACHE_TS = time.time()
+        _LAST_SOURCE = "bonbast"
+        _REFERENCE_ERROR = False
+        logger.info("Bonbast reference refreshed | rub sell=%.0f", data["rub"]["sell"])
         return _CACHE
 
-    for name in await _source_order():
-        fn = _SOURCES.get(name)
-        if not fn:
-            continue
-        try:
-            data = await fn()
-        except Exception as e:
-            logger.warning("rate source '%s' failed: %s", name, e)
-            continue
-        if data.get("rub"):
-            _CACHE = {**_CACHE, **data}
-            _CACHE_TS = now
-            _LAST_SOURCE = name
-            logger.info(
-                "rates from %s | rub buy=%.0f sell=%.0f | usd buy=%.0f",
-                name, data["rub"]["buy"], data["rub"]["sell"],
-                data.get("usd", {}).get("buy", 0),
-            )
-            return _CACHE
 
-    logger.warning("all rate sources failed; using cache")
-    return _CACHE
+def reference_status() -> dict:
+    return {"fetched_at": _CACHE_TS, "stale": _REFERENCE_ERROR or time.time() - _CACHE_TS >= CACHE_TTL}
 
 
 def last_source() -> str:

@@ -65,6 +65,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
            _b("📝 متن‌ها", "adm:texts", style="primary"))
     kb.row(_b("📊 تراکنش‌ها", "adm:tx", style="success"))
     kb.row(_b("📒 حسابداری ورودی / خروجی", "acc:home", style="success"))
+    kb.row(_b("👥 مشترکین و درخواست نرخ", "subs:list:0", style="primary"))
     kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live", style="primary"),
            _b("📢 پیام همگانی", "adm:bcast", style="danger"))
     color_txt = "🎨 دکمه‌های رنگی: روشن ✅" if color_enabled() else "🎨 دکمه‌های رنگی: خاموش ⛔️"
@@ -837,44 +838,13 @@ async def removed_wallet(cb: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "adm:live")
 async def cb_live(cb: CallbackQuery):
-    await cb.answer("در حال دریافت…")
-    from core.rates import fetch_usd_rub, last_source
-    rates = await fetch_rates(force=True)
-    usd_rub = await fetch_usd_rub(force=True)
-    src = last_source() or "—"
-    lines = [f"📈 *نرخ لحظه‌ای (تومان)* — منبع: {src}", f"🕓 زمان: {jalali_datetime()}", ""]
-    if rates.get("rub"):
-        lines.append(f"روبل — خرید: {toman(rates['rub']['buy'])} | فروش: {toman(rates['rub']['sell'])}")
-    if rates.get("usd"):
-        lines.append(f"دلار — خرید: {toman(rates['usd']['buy'])} | فروش: {toman(rates['usd']['sell'])}")
-    if usd_rub:
-        lines.append(f"دلار به روبل (بانک روسیه): {fa_digits(round(usd_rub, 2))} روبل")
-    if not rates:
-        lines.append("⚠️ دریافت نرخ از سایت ناموفق بود.")
-    lines.append("\n*نرخ محاسبه‌شده محصولات:*")
-    products = await get_products()
-    for pid in PRODUCT_ORDER:
-        p = products.get(pid)
-        if not p:
-            continue
-        try:
-            if p["type"] == "rub_tiered":
-                r = await compute_tier_rate(p, p["tiers"][0])
-                extra = f" (پله اول)"
-            elif p["type"] == "rub_single":
-                r = await compute_tier_rate(p, {"mult": p.get("mult", 1.0)})
-                extra = ""
-            else:
-                r = await compute_simple_rate(p)
-                extra = ""
-        except Exception:
-            r, extra = None, ""
-        cur = p.get("currency", "تومان")
-        lines.append(f"• {p['title']}{extra}: {money(r, cur) if r else 'ناموجود'}")
-
+    await cb.answer("در حال دریافت نرخ از منابع…")
+    from core.market import fetch_market, render_market
+    snapshots = await fetch_market(force=True)
     kb = InlineKeyboardBuilder()
-    kb.row(_b("🔄 بروزرسانی", "adm:live", style="success"), _b("🔙 بازگشت", "admin"))
-    await _open(cb, "\n".join(lines), kb.as_markup())
+    kb.row(_b("🔄 تازه‌سازی", "adm:live", style="success"))
+    kb.row(_b("⚙️ نرخ‌های معاملات", "adm:products"), _b("🔙 مدیریت", "admin"))
+    await _open(cb, render_market(snapshots), kb.as_markup(), parse_mode="HTML")
 
 
 # ─────────────────────────── پیام همگانی ───────────────────────────

@@ -51,7 +51,7 @@ async def main():
 
     from core.config import ADMIN_IDS, BOT_TOKEN
     from core.db import init_db
-    from bot.handlers import accounting, admin, user
+    from bot.handlers import accounting, admin, subscribers, user
 
     if not BOT_TOKEN or len(BOT_TOKEN) < 20:
         logger.error("❌ BOT_TOKEN در فایل .env تنظیم نشده!")
@@ -78,6 +78,7 @@ async def main():
     # ترتیب مهم است: admin (فیلترشده برای ادمین) قبل از user
     dp.include_router(admin.router)
     dp.include_router(accounting.router)
+    dp.include_router(subscribers.router)
     dp.include_router(user.router)
 
     me = await bot.get_me()

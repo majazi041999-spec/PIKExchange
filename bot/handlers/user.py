@@ -38,9 +38,13 @@ from bot.keyboards import (
     tiers_kb,
 )
 from bot.states import PayoutFlow, ReceiptFlow
+from bot.access import SubscriberAccess
+from core.activity import track_quote
 
 logger = logging.getLogger("pik.user")
 router = Router()
+router.message.outer_middleware(SubscriberAccess())
+router.callback_query.outer_middleware(SubscriberAccess())
 
 STATUS_LABELS = {
     "awaiting_receipt": "⏳ در انتظار ارسال فیش",
@@ -158,6 +162,7 @@ async def cb_product(cb: CallbackQuery):
         await cb.message.edit_text(text, reply_markup=agree_kb(pid, back_data=back), parse_mode="Markdown")
     except Exception:
         await cb.message.answer(text, reply_markup=agree_kb(pid, back_data=back), parse_mode="Markdown")
+    await track_quote(cb, pid, product, rate, label)
 
 
 @router.callback_query(F.data.startswith("tier:"))
@@ -187,6 +192,8 @@ async def cb_tier(cb: CallbackQuery):
         await cb.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     except Exception:
         await cb.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+
+    await track_quote(cb, pid, product, rate, tier["label"])
 
 
 # ─────────────────────────── موافقت + دریافت کارت ───────────────────────────
