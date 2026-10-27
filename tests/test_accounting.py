@@ -97,16 +97,33 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
         await db.set_json("products", {"rub_c2c": {"tiers": tiers}})
         await migrations.run_migrations()
         product = await get_product("rub_c2c")
-        self.assertEqual([t["key"] for t in product["tiers"]], ["t3", "s1", "s2"])
-        self.assertEqual(product["tiers"][0]["mult"], 0.89)
-        self.assertEqual(product["tiers"][0]["offset"], -123)
-        self.assertNotIn("min", product["tiers"][0])
-        self.assertNotIn("max", product["tiers"][0])
-        self.assertEqual(product["tiers"][1:], tiers[3:])
+        self.assertEqual([t["key"] for t in product["tiers"]], ["t1", "t2", "t3", "s1", "s2"])
+        self.assertEqual([t["mult"] for t in product["tiers"]], [0.5, 0.6, 0.89, 0.96, 0.95])
+        self.assertEqual(product["tiers"][2]["offset"], -123)
+        self.assertEqual([(t["min"], t["max"]) for t in product["tiers"]],
+                         [(0, 50000000), (50000000, 200000000), (200000000, 0), (0, 30000000), (30000000, 0)])
         await migrations.run_migrations()
         self.assertEqual(await get_product("rub_c2c"), product)
         with patch("core.rates.site_base_toman", AsyncMock(return_value=2000)):
-            self.assertEqual(await compute_tier_rate(product, product["tiers"][0]), 1657)
+            self.assertEqual(await compute_tier_rate(product, product["tiers"][2]), 1657)
+
+    async def test_flat_rate_install_restores_five_choices_without_losing_rate(self):
+        await db.set_setting("settings_schema_version", "3")
+        await db.set_json("products", {"rub_c2c": {"tiers": [
+            {"key": "t3", "mult": 0.9108, "offset": -50},
+            {"key": "s1", "mult": 0.9806}, {"key": "s2", "mult": 0.9787},
+        ]}})
+        await migrations.run_migrations()
+        product = await get_product("rub_c2c")
+        self.assertEqual(len(product["tiers"]), 5)
+        self.assertEqual([t["mult"] for t in product["tiers"][:3]], [0.9108] * 3)
+        self.assertEqual([t["offset"] for t in product["tiers"][:3]], [-50] * 3)
+        from bot.keyboards import tiers_kb
+        kb = tiers_kb("rub_c2c", product["tiers"])
+        labels = [b.text for row in kb.inline_keyboard for b in row if b.callback_data.startswith("tier:")]
+        self.assertEqual(len(labels), 5)
+        self.assertIn("زیر ۳۰ میلیون", labels[3])
+        self.assertIn("بالای ۳۰ میلیون", labels[4])
 
     async def test_fresh_install_and_admin_controls(self):
         await migrations.run_migrations()
@@ -118,6 +135,9 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("pe:rub_c2c:tmult:t3", callbacks)
         self.assertNotIn("pe:rub_c2c:tmin:t3", callbacks)
         self.assertNotIn("pe:rub_c2c:tmax:t3", callbacks)
+        for key in ("t1", "t2", "t3", "s1", "s2"):
+            self.assertIn(f"pe:rub_c2c:toffset:{key}", callbacks)
+            self.assertIn(f"pe:rub_c2c:tmult:{key}", callbacks)
 
     async def test_telegram_admin_flow_and_access_filters(self):
         from aiogram import Bot, Dispatcher
