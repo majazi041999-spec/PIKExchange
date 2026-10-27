@@ -7,134 +7,250 @@
   "animated": true,
   "banks": {
     "pik": {
-      "custom_emoji_id": "5406878846546913601",
-      "file_id": "CAACAgIAAxUAAWrg3T5Px-XLEF6PflUBdt7LmC-gAAJBqQACqhcJSyw74_PAdPwaPQQ",
-      "sha256": "94124cdc232dc8e051a4ca9947f34e78aff96036b232a93e8ff93e47997004b6"
+      "custom_emoji_id": "5406802275869960229",
+      "file_id": "CAACAgIAAxUAAWrg4_3FIzPRu5SJgXBBhela4ZvqAAIlqAACBtIISzgM-RhVDtZiPQQ",
+      "sha256": "602d454805c41cb003faf0d12044ea47eed0511104e3fd6bafc47afbd3a449f3",
+      "is_video": true
     },
     "melli": {
-      "custom_emoji_id": "5406925532841423320",
-      "file_id": "CAACAgIAAxUAAWrg3T7c9wfqdzfl8xn-G4ZELYgoAALYsQACIEIJSwtqveFGfdsUPQQ",
-      "sha256": "eacd3c97458c3764541850a0ae89eea004c08ebdc47df775154b4de4b4465cae"
+      "custom_emoji_id": "5404784315550706990",
+      "file_id": "CAACAgIAAxUAAWrg4_3GepHC7m0Tl_zse1z6cvfwAAIurQACs6YBS6SCYn1PbSwmPQQ",
+      "sha256": "d96d6f56243c71d23184ab0c8cb5bb9ea78a5875960e4aa6843179a7d95c7890",
+      "is_video": true
     },
     "mellat": {
-      "custom_emoji_id": "5406777330699906735",
-      "file_id": "CAACAgIAAxUAAWrg3T6vyCYoJ1y2fUU_SSh4Hbq4AAKvrgACVrsIS7l_oitRsnUuPQQ",
-      "sha256": "c6e9a67f9ac8bb055ff29e4045cfbe7e68904edad0088a0bf70c74020667798b"
+      "custom_emoji_id": "5406959922644560984",
+      "file_id": "CAACAgIAAxUAAWrg4_69erNl7Xi_BVA3wfHR6fr_AAJYrAACZ2EJS2zis4qE74mIPQQ",
+      "sha256": "cb08d6d56dd83d5f14288fb481ff92f44a4e2521a0606bbe56bbd02189579cac",
+      "is_video": true
     },
     "saderat": {
-      "custom_emoji_id": "5407052380405539695",
-      "file_id": "CAACAgIAAxUAAWrg3T72bxP5HRLvnhYooNXFbwwqAAJvowACfrUJS_6_3Vq3GR9DPQQ",
-      "sha256": "26e8364e59a0ae7d6eca677f48e236f31e4d32fbfa2d46a453c8bbf6f1cc4d27"
+      "custom_emoji_id": "5407020610532451721",
+      "file_id": "CAACAgIAAxUAAWrg4_5rLt7zJzWskcf9vrYRKOKNAAKJpQACmZgJS5wC_H3VbN_DPQQ",
+      "sha256": "8fc320db4287d0ba0aa96e1e99fc8a5561d1db3aa801b8beb5b119db121b9085",
+      "is_video": true
     },
     "tejarat": {
-      "custom_emoji_id": "5406644521721179770",
-      "file_id": "CAACAgIAAxUAAWrg3T7CEbBw7qtNE-2qVTA4Iz5VAAJ6rgACjEIIS1oU5m73bZ_-PQQ",
-      "sha256": "053ac389d9ee75ec74f0083588a531b1c703ae75a2bc0262ca5f8131f18b2b3c"
+      "custom_emoji_id": "5406578765771875974",
+      "file_id": "CAACAgIAAxUAAWrg4_5qkb4ID11q28nS8NCPy5jXAAKGpgACvgYISxBtrk4i6ZtFPQQ",
+      "sha256": "f4322ff4a19ddcdaa2c7dd50a1ae765b4a7200e00c02f5f76c3b108c488ee82d",
+      "is_video": true
     },
     "sepah": {
-      "custom_emoji_id": "5406738066108885350",
-      "file_id": "CAACAgIAAxUAAWrg3T7q1bDT0CGuvU4EDmlabEINAAJmqQACoJcISwejCCMogGcjPQQ",
-      "sha256": "aae237f117272f73c731f26320c4b8e86fa5a7094228de4b685f51dd4c190dbb"
+      "custom_emoji_id": "5406835841039381340",
+      "file_id": "CAACAgIAAxUAAWrg4_83GYqr_0XA5037gebKPH56AAJcswACjfAIS4b7Pf5iGxDNPQQ",
+      "sha256": "319bad7ccedd8c34c96a2e3ebc31a83bab5d1361cd205507a463d39b031188ad",
+      "is_video": true
     },
     "saman": {
-      "custom_emoji_id": "5406883218823621447",
-      "file_id": "CAACAgIAAxUAAWrg3T6ETVrm0nHSFRKDwobyYyPTAAJHqwACpBsJSw5LBTKy9vUKPQQ",
-      "sha256": "3fac7cd1c2584d5bbe52e49ba67eec44381735e8923eb63d9030bb22da391c26"
+      "custom_emoji_id": "5406614272266513741",
+      "file_id": "CAACAgIAAxUAAWrg4_8Uk-eNst-iYOMptdGDIl6CAAJNrQACCScIS0zuedeLUc2KPQQ",
+      "sha256": "090a0569882335b9d0be8d427c7ad0691444dc3ffa72a4e49636267958d0153c",
+      "is_video": true
     },
     "blu": {
-      "custom_emoji_id": "5406957495988039798",
-      "file_id": "CAACAgIAAxUAAWrg3T45LbSxpdTgH81zoL-_oJPxAAJ2sAACMl8JS8aQjhS1RlwKPQQ",
-      "sha256": "6c392a580267311efd7db817d7bff8c92ac084c4f50b983aa0cf3e9b5cad5140"
+      "custom_emoji_id": "5406975388821793165",
+      "file_id": "CAACAgIAAxUAAWrg5AABraiX7o1Ci7kK1c-E-_zAkwACjakAAnhvCUvRFDlpygEtmD0E",
+      "sha256": "70ce0b57b7d87efc073f3aa95fdc8cdeae6542f0372716b1500ea0bfe4a7ec38",
+      "is_video": true
     },
     "mehr": {
-      "custom_emoji_id": "5406618339600544725",
-      "file_id": "CAACAgIAAxUAAWrg3T78EEc9LRTBisVv4e6P_xD3AALVswACvCoIS4bV2ahlUFYQPQQ",
-      "sha256": "86d11314755f4b015dacadabd71d957d1ddb76428b7210ba1ea510a29ba8bda4"
+      "custom_emoji_id": "5406653554037401682",
+      "file_id": "CAACAgIAAxUAAWrg5AABe4pUnGmbIYPud2XLZqTpkQACUqgAAsNKCEtl-nfvHvGp7T0E",
+      "sha256": "d5ce296597637aee893f37065ca42338f0555e7bb105f2d7f08b2335f74d9092",
+      "is_video": true
     },
     "resalat": {
-      "custom_emoji_id": "5407034826874201522",
-      "file_id": "CAACAgIAAxUAAWrg3T7kqgMoYgZuBzuHkTVmw3iuAAKypQACh6UJS8eevPDEcLJpPQQ",
-      "sha256": "d838caf4ab49eb1dc18b545d231088d3cfcc2ba493943ea7402bad3782a7a28f"
+      "custom_emoji_id": "5406891160218151836",
+      "file_id": "CAACAgIAAxUAAWrg5AEKGex23pRqwVXhzpQCprtKAAKcqwAC3SIJSwV0x4Iwwn5fPQQ",
+      "sha256": "fef9ed9c790826888785c19af72e017cd4d21a789fe04b81b6f169f053f700d1",
+      "is_video": true
     },
     "pasargad": {
-      "custom_emoji_id": "5406711308462632926",
-      "file_id": "CAACAgIAAxUAAWrg3T7NL563HgStnOtL7mOsVzcNAALerwACSn8IS7T4YVerECG3PQQ",
-      "sha256": "3b4ea6e21fa8ca6743ec3f18f1a51e63f8899e5ca772058306254af2bf58ef95"
+      "custom_emoji_id": "5407013377807527363",
+      "file_id": "CAACAgIAAxUAAWrg5AFBjQzz_7MHqjG4LXX0-JuEAALDrQACBZIJS7E9w6LdHES9PQQ",
+      "sha256": "de62ddb40a1b0e9f3408a7511fa7b97f6848b398ed8d8751138ac7220c3635c2",
+      "is_video": true
     },
     "parsian": {
-      "custom_emoji_id": "5407005178714961402",
-      "file_id": "CAACAgIAAxUAAWrg3T78NAHiB1f0HbPJXkmQC8SgAAL6tQACkIoJSyAnAVc8SK4tPQQ",
-      "sha256": "59d4f58652f35db854563d946ca9ac6e3961c453a64e4a1d37c55ca196c36448"
+      "custom_emoji_id": "5406599918485814691",
+      "file_id": "CAACAgIAAxUAAWrg5AEk4AVyEGny4ojTohnxpyBJAAKjvQAC-xkIS6fVRPYeNGzEPQQ",
+      "sha256": "fa46badabc413578937ffbd9d05c5c6f5e4511138ae51d68bfc17a20d5f9a38f",
+      "is_video": true
     },
     "refah": {
-      "custom_emoji_id": "5404497738152848376",
-      "file_id": "CAACAgIAAxUAAWrg3T78vueUpUMCt4-PnUrG-BtCAAL4qwACD6IAAUvJ412tHQzJdj0E",
-      "sha256": "0a97f36a968c3e1e8bb3190b1719bede673e49494bc976cf199707482f23ed70"
+      "custom_emoji_id": "5406889455116137510",
+      "file_id": "CAACAgIAAxUAAWrg5AKV8_TnZwJerPUD70MDYxSPAAImtAACUCEJS49I4szCnkhCPQQ",
+      "sha256": "e53989ac90540492294f83d4437972b960f643d07963d0174ee97edbbc71c003",
+      "is_video": true
     },
     "keshavarzi": {
-      "custom_emoji_id": "5407039302230125369",
-      "file_id": "CAACAgIAAxUAAWrg3T7d9ffSU5Ph6TN55AXuc4R4AAI5qwACmakJS4KpOAIyu5kKPQQ",
-      "sha256": "f1503946ae863bccd87201498f5fdf3c39a90687b75fcc71a8bcbe1def9af6c9"
+      "custom_emoji_id": "5406877768510123896",
+      "file_id": "CAACAgIAAxUAAWrg5ALwcrAUac6mrObM6CY1O2zsAAJ4rwACrxYJS4mxV7kFfkASPQQ",
+      "sha256": "e6b8e385b7739ab4869dfe573c301494fc4cd97370a25669feb084159946f3b2",
+      "is_video": true
     },
     "maskan": {
-      "custom_emoji_id": "5406878056272934720",
-      "file_id": "CAACAgIAAxUAAWrg3T7-G50C4siZ9DSwVcOcYsjFAAJAtwAC8hYJS4HwQodj-zm3PQQ",
-      "sha256": "2496b2415791a5c7e2d19fdff3788fc6d9156cb0e76d5be002343a2c1368f36e"
+      "custom_emoji_id": "5406964273446431629",
+      "file_id": "CAACAgIAAxUAAWrg5ALSlUFCgu-Xiv_viMCJ1AczAAKNqwACXGUJS5Aywh-DveWePQQ",
+      "sha256": "65962953e8bf891e3b24b0226c0180aa48300eea9df95b20a37363f5cea459c8",
+      "is_video": true
     },
     "shahr": {
-      "custom_emoji_id": "5406920228556811643",
-      "file_id": "CAACAgIAAxUAAWrg3T76HwZeKYQudPCcP-vO57mbAAJ7rQACTT0JS9VPt0M806jAPQQ",
-      "sha256": "391edf8604dd2a54ffe670770aae94ad89809b1c1c7bf1a4e390181c885f300b"
+      "custom_emoji_id": "5406662659368070505",
+      "file_id": "CAACAgIAAxUAAWrg5AN5Av53fIahGWcPxu4INFRTAAJprQACC1MIS_2E7DfL1y2WPQQ",
+      "sha256": "06a2bcc8bb64a16dc570cb5acde0f2bdbb33ad4c587112210ac80d4ab427e440",
+      "is_video": true
     },
     "novin": {
-      "custom_emoji_id": "5404342655473723551",
-      "file_id": "CAACAgIAAxUAAWrg3T7g71GHgFKHbYpE2XRg13zxAAKfqAACAxUAAUsmUTIuFWJZhT0E",
-      "sha256": "70f67d1099e4995bc67962723378559a59ab6141fd9adcf2cf7aef2599c3e47a"
+      "custom_emoji_id": "5406673010239256812",
+      "file_id": "CAACAgIAAxUAAWrg5AOtVWvTRMXjjoHD5E9YvDZ6AALsuAACdVwIS6uj1-NQxL2pPQQ",
+      "sha256": "258c9c3d6861d0169e6d3797929bf7afa5eb8b0b171f6309ae445e363f1fccd1",
+      "is_video": true
     },
     "karafarin": {
-      "custom_emoji_id": "5407100131851939407",
-      "file_id": "CAACAgIAAxUAAWrg3T4CZqFaiEABvLb_uT9Bae8iAAJPrgAC7OAJS68VFvVfJ2zOPQQ",
-      "sha256": "e491e0f9995fd5a5241d4ddf06a908e019a1e731c73e9a7e0bc9a3d43b63ef01"
+      "custom_emoji_id": "5406852544167192721",
+      "file_id": "CAACAgIAAxUAAWrg5ANP5TASwMWVvXeUcsHuoHwEAAKRqAACvv8IS9QDRiFOkL3QPQQ",
+      "sha256": "27f569cf3f4c9f6b0da26f058cf06d5e770309859fde78d8c21ff5ca243ba530",
+      "is_video": true
     },
     "sina": {
-      "custom_emoji_id": "5406891168808086358",
-      "file_id": "CAACAgIAAxUAAWrg3T7oTIUVDQ1okW0LIdvSD7M0AAJWqwAC3yIJSyOJ4DDvj5XbPQQ",
-      "sha256": "ae48bcb47bb3989029416ec75c495efee2b63fd110c4d6cf3b00744bea354b50"
+      "custom_emoji_id": "5406616458404866790",
+      "file_id": "CAACAgIAAxUAAWrg5AToxzQ1GeXsFueso-DhBwNwAALmqgACBikIS-nfnTCQdObgPQQ",
+      "sha256": "9b5ffd7dd6098c49e74d2ca3083c10df459f4623e8db4645fb92971f4f420217",
+      "is_video": true
     },
     "ayandeh": {
-      "custom_emoji_id": "5406663252073556585",
-      "file_id": "CAACAgIAAxUAAWrg3T4IgaqaLH6RvVQM2XqbAdzjAAJpqgAClVMIS6-eW8V0nMzTPQQ",
-      "sha256": "88c34397bdbbdbbb8173c9fa3fae1cce87ab38610f70e29d62a44148ea5d693f"
+      "custom_emoji_id": "5406733663767407794",
+      "file_id": "CAACAgIAAxUAAWrg5ATZzbm_7jfziITuri6zrdFhAAKyrAACn5MIS5kuis3GXQswPQQ",
+      "sha256": "67257aee24d0b25065c7149864303ef77e2c4d60deadb4fdf63caa373bca9ac6",
+      "is_video": true
     },
     "iranzamin": {
-      "custom_emoji_id": "5406618167801849102",
-      "file_id": "CAACAgIAAxUAAWrg3T5iYQl0emAVWjR3JJRIvdZxAAIOpQAClCoIS8-VyWT_PzWuPQQ",
-      "sha256": "de7f53083315f956ac2d3f0708ad2ec2b768ddb321fdd9e84ab77d5bc46947dc"
+      "custom_emoji_id": "5406688167178840611",
+      "file_id": "CAACAgIAAxUAAWrg5ARAjUvkdOpkI-NydDQTfH5wAAIjqgACPmoIS7D65ASeBVW0PQQ",
+      "sha256": "daeddb288a3e218be78d57eacff407e5328100e1d6d8cc3f945a978dc58fea4f",
+      "is_video": true
     },
     "tbank": {
-      "custom_emoji_id": "5406678164200009701",
-      "file_id": "CAACAgIAAxUAAWrg3T6qCX7Zw5jI9nHK2gGvPyRjAALlrwACJWEIS4C2PQ2iVII8PQQ",
-      "sha256": "ca726eba4c0493ea98d2588b1425b7cb1cd5d3ee7fd805ee0268f56de09096ae"
+      "custom_emoji_id": "5406713881148039389",
+      "file_id": "CAACAgIAAxUAAWrg5AXG36h4xQrmVnENflGN9jnDAALdoAACoYEISy32SdtfPigbPQQ",
+      "sha256": "90e26ee887cdde2522ed7bf8477dfe8d7892bf2dd79cec74ab59110f175a5962",
+      "is_video": true
     },
     "sber": {
-      "custom_emoji_id": "5407019128768734272",
-      "file_id": "CAACAgIAAxUAAWrg3T58RvKvudIzwo_LNHlMXdwHAAJApAACQJcJS25hE0YWsL71PQQ",
-      "sha256": "fb25dc88da70c7420d8e7a61680a3f46fad1acbe723fb2e5905ed8fab2c8e82e"
+      "custom_emoji_id": "5404608625618496903",
+      "file_id": "CAACAgIAAxUAAWrg5AXNR8Y6wo_xuGLZUvSP-4mfAAKHrQAC6QYBS6UMlVqFEuloPQQ",
+      "sha256": "496cacaf1d706993cd29c9884e8da1e91fd186a67387c626c96ff33f95a04d57",
+      "is_video": true
     },
     "vtb": {
-      "custom_emoji_id": "5406968671492944870",
-      "file_id": "CAACAgIAAxUAAWrg3T40-PxL0BHzZJGcLUDQ6KBZAALmswACXGkJS2bwTB0tsJqLPQQ",
-      "sha256": "d7ca94f00fa0207431e01d516546ac933d823e6006904437706b62f034d751a5"
+      "custom_emoji_id": "5406902193989134838",
+      "file_id": "CAACAgIAAxUAAWrg5AalJQnb6EEYQWNavfjZGojWAAL2qQAC5iwJS2u_Ao56rKNBPQQ",
+      "sha256": "2e5ebb77a6b46f72ecdcb76c12cdf00062d491d6d66ba47cd92fd2b82b7cb30b",
+      "is_video": true
     },
     "alfa": {
-      "custom_emoji_id": "5406776003555011398",
-      "file_id": "CAACAgIAAxUAAWrg3T7t_d9NGIwq_3vMrrLmlpf7AAJGqwACIboISx7-ghl9bzCRPQQ",
-      "sha256": "d1e482956fab4fff3489fa9f664b329c5f4aad6535251a0fc6b714cc9b63f2bc"
+      "custom_emoji_id": "5406983033863582787",
+      "file_id": "CAACAgIAAxUAAWrg5AYXBHsG0AYMmlH7990VKdLKAAJDtAACbHYJS98c-FXr4L6APQQ",
+      "sha256": "86dc56bc54ccff1352eb4f6248c39d6c88ad9d5f4f908b8914e4570dda472058",
+      "is_video": true
     },
     "ozon": {
-      "custom_emoji_id": "5406655516837456290",
-      "file_id": "CAACAgIAAxUAAWrg3T5LGrYyyTvDHjHLHdJFrUrwAAKiqQACjEwISx8pHzoBpEHHPQQ",
-      "sha256": "eba973ad68c491315063f0643c3765cf427ef9c354c8ec45ef016003a9ec934d"
+      "custom_emoji_id": "5406721242721987128",
+      "file_id": "CAACAgIAAxUAAWrg5AZcBlZCmy-aRgPUGt3MQIZoAAI4qgACU4gIS3IseBpuzW6fPQQ",
+      "sha256": "da75692de0d7b161578f18f6f6f4c3d8b1626a63db06ca7fbbbf25a225c4f329",
+      "is_video": true
+    },
+    "gazprom": {
+      "custom_emoji_id": "5406941209472050966",
+      "file_id": "CAACAgIAAxUAAWrg5AfbwyX6vNLne-5DWy0UYmTfAAIWpwACYlAJS8Y2u46LlL9gPQQ",
+      "sha256": "2cfca385811537ac2cb149c93048a693537400daf90b1856356fb56d0c694b0c",
+      "is_video": true
+    },
+    "raiffeisen": {
+      "custom_emoji_id": "5406880710562721689",
+      "file_id": "CAACAgIAAxUAAWrg5AeAsv82W1ylZx2cwsB7eQVcAAKZrwACXBkJS1LCiIFdPr3BPQQ",
+      "sha256": "de230bdde23827f22ec371f49ccff1787eb73b7ca8deee7e461a535abb32e0a7",
+      "is_video": true
+    },
+    "rshb": {
+      "custom_emoji_id": "5406734428271587441",
+      "file_id": "CAACAgIAAxUAAWrg5AdumDFJoyu-a1qudDaN__oDAAJxsAACUZQIS_Xxn_zkJqZjPQQ",
+      "sha256": "ec4e158abfbca0647e5a0213331e387597fb1f37bdea82ac3a13223175d51420",
+      "is_video": true
+    },
+    "mkb": {
+      "custom_emoji_id": "5406588446628164538",
+      "file_id": "CAACAgIAAxUAAWrg5AhvAQafqpureTP4XPopycQRAAK6swACjA8IS9dcmC1TwcohPQQ",
+      "sha256": "0f1771b27075b02585af97a355ffd67b981027be4d7686bf1591f1791adf891e",
+      "is_video": true
+    },
+    "sovcom": {
+      "custom_emoji_id": "5406582141616172862",
+      "file_id": "CAACAgIAAxUAAWrg5Ah8KW0uK2TnYzD-I912kMFHAAI-rwAC0AkISzbvsbJG2cRSPQQ",
+      "sha256": "7298393a2dc1e42f7ec4864228ce2ad666b9c385e337ec973a4ecee5ecb22bf0",
+      "is_video": true
+    },
+    "check_green": {
+      "custom_emoji_id": "5407014421484580193",
+      "file_id": "CAACAgIAAxUAAWrg5AjWFUMOTdaSD6CPWCTG2rt1AAJhrQAC-JIJS10w9adpAR1TPQQ",
+      "sha256": "5808f908162a9547a9827094bbdf54a28e8eab733b8da8327da34e34a773790a",
+      "is_video": true
+    },
+    "check_orange": {
+      "custom_emoji_id": "5404533927547284736",
+      "file_id": "CAACAgIAAxUAAWrg5AlTbPivXY0ZzSLhoecG7PH_AAOtAAL5wgABS4O1N5iFJZCuPQQ",
+      "sha256": "17463795ebfb7ee0b28201434b4ef6274ef42ad4541f33be8f62f2106051d827",
+      "is_video": true
+    },
+    "reference_purple": {
+      "custom_emoji_id": "5406636567441752318",
+      "file_id": "CAACAgIAAxUAAWrg5AlX0UZG-8NgfEqjNRf_v0AQAAL-wAACUDsIS0mcSMfMk7uNPQQ",
+      "sha256": "90dfc5c2132fca052f24ae2bbacf351065bad4662e2805f9db5835178efb907f",
+      "is_video": true
+    },
+    "reference_gold": {
+      "custom_emoji_id": "5406631855862623026",
+      "file_id": "CAACAgIAAxUAAWrg5AocjhrrqplFQ3VQ03wCqm-9AAIyqwACBzcIS3yEKA98VJ4ZPQQ",
+      "sha256": "5c5cd4b518ec6a8cbe8e2b7ce0d86aadff795d5acb6062d36dc38e5f68b11102",
+      "is_video": true
+    },
+    "cross_red": {
+      "custom_emoji_id": "5406772507451632514",
+      "file_id": "CAACAgIAAxUAAWrg5Ao2JPRupDi0a5Xme2RSxTafAAKCqwAC87YISzavBMI1chsAAT0E",
+      "sha256": "30e8f05ce449bea33c4b2d2d11469244ae4d0361f6c99bfc1391941368142300",
+      "is_video": false
+    },
+    "no_entry": {
+      "custom_emoji_id": "5407062842945877450",
+      "file_id": "CAACAgIAAxUAAWrg5AqderOSgbCaSr2isEf4bUL_AALKtQACAr8JS132v8oxXREEPQQ",
+      "sha256": "074077401544afdfe0a9c6cb8102b4b55bdbd53cf8d279d77d923df16b372a85",
+      "is_video": false
+    },
+    "prohibited": {
+      "custom_emoji_id": "5407083918350395885",
+      "file_id": "CAACAgIAAxUAAWrg5AublacDOOZ45IYDWp4WTwUlAALtqQACLdIJS7bEhsPAGGwDPQQ",
+      "sha256": "c2061c590292d46eab91393c7a99ec8b815e1cf302f081dde4eaedeb936a8902",
+      "is_video": false
+    },
+    "arrow_up_red": {
+      "custom_emoji_id": "5406671193468087423",
+      "file_id": "CAACAgIAAxUAAWrg5AvDiGZuuLMuJRjGGa9kC61TAAJ_rAACzloIS4Hj_6Oy_490PQQ",
+      "sha256": "f0fbbec0bfd4300667cf3281e00dab239e0b7cd6501b1f0533f501d9d264a99b",
+      "is_video": false
+    },
+    "arrow_down_green": {
+      "custom_emoji_id": "5407086856108027618",
+      "file_id": "CAACAgIAAxUAAWrg5AzBFsC81zYbj9cUk0f1bzn7AALirgAC2dQJS90J_mI9WgQpPQQ",
+      "sha256": "9c4ba2103ed32920780eaf51bd996bec6ba99d9d3434d4273e36006ffc22b322",
+      "is_video": false
+    },
+    "dollar_bundle": {
+      "custom_emoji_id": "5407008374170626309",
+      "file_id": "CAACAgIAAxUAAWrg5Axu7QrPRmFjZkHEXRadwMQHAAIFqQACeI0JS7dwx6IqeBKrPQQ",
+      "sha256": "e688b4baa9c72d4121492b03b948a56018bf1a57c0d8ab19027562f5b7c068d0",
+      "is_video": false
     }
   },
   "bot_custom_emoji_enabled": true

@@ -4,6 +4,7 @@ Requires pillow and imageio-ffmpeg. Run render_bank_vectors.cjs first (requires 
 Bank logos retain their source colors and proportions. Motion is one smooth breath.
 """
 import math
+import json
 import subprocess
 from pathlib import Path
 
@@ -57,13 +58,23 @@ def main():
         image = prepare_bank(Image.open(path).convert("RGBA"))
         pictures[path.stem] = image
     pik = Image.open(FOLDER / "source/pik.png").convert("RGBA")
-    # The PIK reference intentionally retains its black background, within transparent corners.
+    # The revised PIK mark has true transparency and no Exchange subtitle.
     pik.thumbnail((480, 480), Image.Resampling.LANCZOS)
     branded = Image.new("RGBA", (512, 512))
     branded.alpha_composite(pik, ((512 - pik.width) // 2, (512 - pik.height) // 2))
     pictures["pik"] = branded
+    for path in (FOLDER / "source").glob("*.webp"):
+        picture = Image.open(path).convert("RGBA")
+        picture.thumbnail((440, 440), Image.Resampling.LANCZOS)
+        layer = Image.new("RGBA", (512, 512))
+        picture = picture.resize((440, 440), Image.Resampling.LANCZOS)
+        layer.alpha_composite(picture, (36, 36))
+        pictures[path.stem] = layer
     for bank_id, image in pictures.items():
         frame_at(image, 0).save(output / f"{bank_id}.png")
+        if json.loads((FOLDER / 'specials.json').read_text(encoding='utf-8')).get(bank_id, {}).get('static'):
+            frame_at(image, 0).save(output / f"{bank_id}.webp", lossless=True)
+            continue
         encode(image, output / f"{bank_id}.webm")
         print(bank_id, (output / f"{bank_id}.webm").stat().st_size, flush=True)
     # A contact sheet checks both chat themes and actual chat-size readability.

@@ -40,6 +40,11 @@ BANKS = {
     "vtb": {"name": "VTB · ВТБ", "country": "ru", "aliases": ["vtb", "втб", "وی تی بی"]},
     "alfa": {"name": "آلفا · Альфа", "country": "ru", "aliases": ["الفا", "آلفا", "alfa", "альфа"]},
     "ozon": {"name": "اوزون · Ozon", "country": "ru", "aliases": ["ozon", "озон", "اوزون", "ازون"]},
+    "gazprom": {"name": "گازپروم‌بانک · Газпромбанк", "country": "ru", "aliases": ["گازپروم", "gazprom", "газпром"]},
+    "raiffeisen": {"name": "رایفایزن · Райффайзен", "country": "ru", "aliases": ["رایفایزن", "رایفایسن", "raiffeisen", "райффайзен"]},
+    "rshb": {"name": "روس‌سلخوزبانک · Россельхозбанк", "country": "ru", "aliases": ["روس سلخوز", "روسسلخوز", "rshb", "россельхоз", "рсхб"]},
+    "mkb": {"name": "MKB · МКБ", "country": "ru", "aliases": ["mkb", "мкб", "ام کی بی"]},
+    "sovcom": {"name": "سووکوم‌بانک · Совкомбанк", "country": "ru", "aliases": ["سووکوم", "سوکم", "sovcom", "совком"]},
 }
 
 try:

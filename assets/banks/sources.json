@@ -21,8 +21,17 @@
   "iranzamin": "https://raw.githubusercontent.com/houtanrocky/iranian-banks-react-icons/main/raw/iran-zamin-color.svg",
   "tbank": "https://raw.githubusercontent.com/melpnz/rblp/master/dark/svg/icon/tbank.svg",
   "sber": "https://upload.wikimedia.org/wikipedia/commons/2/27/Logo_Sberbank.svg",
-  "vtb": "https://raw.githubusercontent.com/melpnz/rblp/master/dark/svg/icon/vtb.svg",
+  "vtb": "https://upload.wikimedia.org/wikipedia/commons/7/7c/VTB_Logo_2018.svg",
   "alfa": "https://raw.githubusercontent.com/melpnz/rblp/master/dark/svg/icon/alfabank.svg",
   "ozon": "https://raw.githubusercontent.com/melpnz/rblp/master/dark/svg/icon/ozon.svg",
-  "pik": "User-supplied PIK Exchange reference, refined with built-in imagegen"
+  "pik": "User-supplied PIK mark, transparent, no Exchange subtitle; built-in imagegen",
+  "gazprom": "https://raw.githubusercontent.com/melpnz/rblp/master/light/svg/icon/gazprombank.svg",
+  "raiffeisen": "https://raw.githubusercontent.com/melpnz/rblp/master/light/svg/icon/raiffeisen.svg",
+  "rshb": "https://raw.githubusercontent.com/melpnz/rblp/master/light/svg/icon/rshb.svg",
+  "mkb": "https://raw.githubusercontent.com/melpnz/rblp/master/light/svg/icon/mkb.svg",
+  "sovcom": "https://raw.githubusercontent.com/melpnz/rblp/master/light/svg/icon/sovcombank.svg",
+  "check_green": "User-supplied reference pack https://t.me/addemoji/PIKBahramRuMadeByT0",
+  "check_orange": "User-supplied reference pack https://t.me/addemoji/PIKBahramRuMadeByT0",
+  "reference_purple": "User-supplied reference pack; preserved graphic, bank identity not asserted: https://t.me/addemoji/PIKBahramRuMadeByT0",
+  "reference_gold": "User-supplied reference pack; preserved graphic, bank identity not asserted: https://t.me/addemoji/PIKBahramRuMadeByT0"
 }

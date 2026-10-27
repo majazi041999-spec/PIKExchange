@@ -1,0 +1,12 @@
+{
+  "check_green": {"name": "تأیید سبز", "emoji": "✅", "static": false},
+  "check_orange": {"name": "تأیید نارنجی مرجع", "emoji": "☑️", "static": false},
+  "reference_purple": {"name": "نشان بنفش مرجع", "emoji": "💱", "static": false},
+  "reference_gold": {"name": "نشان طلایی مرجع", "emoji": "💱", "static": false},
+  "cross_red": {"name": "رد قرمز", "emoji": "❎", "static": true},
+  "no_entry": {"name": "ورود ممنوع", "emoji": "⛔️", "static": true},
+  "prohibited": {"name": "ممنوع", "emoji": "🚫", "static": true},
+  "arrow_up_red": {"name": "فلش بالا قرمز", "emoji": "⬆️", "static": true},
+  "arrow_down_green": {"name": "فلش پایین سبز", "emoji": "⬇️", "static": true},
+  "dollar_bundle": {"name": "دسته دلار", "emoji": "💵", "static": true}
+}
