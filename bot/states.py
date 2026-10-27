@@ -14,12 +14,6 @@ class AdminEdit(StatesGroup):
     waiting_value = State()
 
 
-class AdminWallet(StatesGroup):
-    waiting_user = State()
-    waiting_amount = State()       # تغییر تومان
-    waiting_amount_rub = State()   # تغییر روبل
-
-
 class AdminMessageUser(StatesGroup):
     """ارسال پیام مستقیم ادمین به یک کاربر از طریق ربات."""
     waiting_text = State()

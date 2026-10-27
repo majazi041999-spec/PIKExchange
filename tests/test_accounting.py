@@ -1,13 +1,10 @@
 import asyncio
-import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-import httpx
-
-from core import accounting, db, migrations, receipts
+from core import accounting, db, migrations
 from core.products import get_product
 from core.rates import compute_tier_rate
 
@@ -105,7 +102,7 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
         await migrations.run_migrations()
         self.assertEqual(await get_product("rub_c2c"), product)
         with patch("core.rates.site_base_toman", AsyncMock(return_value=2000)):
-            self.assertEqual(await compute_tier_rate(product, product["tiers"][2]), 1657)
+            self.assertEqual(await compute_tier_rate(product, product["tiers"][2]), 1877)
 
     async def test_flat_rate_install_restores_five_choices_without_losing_rate(self):
         await db.set_setting("settings_schema_version", "3")
@@ -138,6 +135,60 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
         for key in ("t1", "t2", "t3", "s1", "s2"):
             self.assertIn(f"pe:rub_c2c:toffset:{key}", callbacks)
             self.assertIn(f"pe:rub_c2c:tmult:{key}", callbacks)
+
+    async def test_migration_selects_offset_only_when_configured(self):
+        await db.set_setting("settings_schema_version", "4")
+        await db.set_json("products", {"rub_c2c": {"tiers": [
+            {"key": "t1", "mult": 0.9197, "offset": -270},
+            {"key": "t2", "mult": 0.9153, "offset": 0},
+            {"key": "t3", "mult": 0.9108, "offset": -200, "pricing_mode": "multiplier"},
+        ]}})
+        await migrations.run_migrations()
+        product = await get_product("rub_c2c")
+        self.assertEqual([t["pricing_mode"] for t in product["tiers"]], ["offset", "multiplier", "multiplier"])
+        await migrations.run_migrations()
+        self.assertEqual(await get_product("rub_c2c"), product)
+
+    async def test_manual_name_edit_and_report_pagination(self):
+        from bot.handlers.accounting import show_report
+        entry_id = await accounting.create_manual_draft(1, "in", "میرحسین - ۱۰۰٬۰۰۰٬۰۰۰")
+        await accounting.change_entry(entry_id, 0, 1, "name", "میرحسین <b>&</b>")
+        await accounting.change_entry(entry_id, 1, 1, "posted")
+        msg = AsyncMock()
+        await show_report(msg)
+        report = msg.answer.call_args.args[0]
+        self.assertIn("میرحسین &lt;b&gt;&amp;&lt;/b&gt;", report)
+        self.assertIn("۱۰۰,۰۰۰,۰۰۰ تومان", report)
+        for i in range(8):
+            await accounting.create_manual_draft(1, "out", f"شخص {i} - ۱۰۰")
+        await show_report(msg)
+        first = msg.answer.call_args
+        self.assertLess(len(first.args[0]), 4096)
+        self.assertIn("acc:list:8", [b.callback_data for row in first.kwargs["reply_markup"].inline_keyboard for b in row])
+        await show_report(msg, 8)
+        self.assertIn("میرحسین", msg.answer.call_args.args[0])
+        self.assertNotIn("acc:list:16", [b.callback_data for row in msg.answer.call_args.kwargs["reply_markup"].inline_keyboard for b in row])
+
+    async def test_wallet_removed_but_existing_balances_not_destroyed(self):
+        from bot.keyboards import main_menu
+        from bot.handlers.admin import admin_menu_kb
+        user_buttons = [b.callback_data for row in (await main_menu(True)).inline_keyboard for b in row]
+        admin_buttons = [b.callback_data for row in admin_menu_kb().inline_keyboard for b in row]
+        self.assertNotIn("wallet", user_buttons)
+        self.assertNotIn("adm:wallet", admin_buttons)
+        user = await db.get_or_create_user(42)
+        conn = await db._connect()
+        try:
+            await conn.execute("ALTER TABLE users ADD COLUMN wallet INTEGER DEFAULT 12345")
+            await conn.execute("ALTER TABLE users ADD COLUMN wallet_rub INTEGER DEFAULT 567")
+            await conn.commit()
+        finally:
+            await conn.close()
+        await db.init_db()
+        await db.update_user(user["id"], wallet=0)
+        saved = await db.get_user_by_tg(42)
+        self.assertEqual(saved["wallet"], 12345)
+        self.assertEqual(saved["wallet_rub"], 567)
 
     async def test_telegram_admin_flow_and_access_filters(self):
         from aiogram import Bot, Dispatcher
@@ -180,28 +231,46 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
                 await feed(text="/accounting")
                 self.assertTrue(api.called)
                 await feed(callback="acc:new:in")
-                await feed(callback="acc:manual")
-                await feed(text="۱۰۰٬۰۰۰٬۰۰۰ تومان")
+                await feed(text="میرحسین - ۱۰۰٬۰۰۰٬۰۰۰ تومان")
                 entry = (await accounting.list_entries())[0]
                 self.assertEqual(entry["amount_rial"], 1000000000)
                 await feed(callback=f"acc:do:posted:{entry['id']}:{entry['revision']}", uid=43)
                 self.assertEqual((await accounting.totals())["in"], 0)
                 await feed(callback=f"acc:do:posted:{entry['id']}:{entry['revision']}")
                 self.assertEqual((await accounting.totals())["in"], 1000000000)
+                with patch("core.rates.site_base_toman", AsyncMock(return_value=3350)):
+                    await feed(callback="pe:rub_c2c:toffset:t1")
+                    await feed(text="-۲۷۰")
+                    product = await get_product("rub_c2c")
+                    self.assertEqual(product["tiers"][0]["pricing_mode"], "offset")
+                    self.assertEqual(await compute_tier_rate(product, product["tiers"][0]), 3080)
+                    await feed(callback="pe:rub_c2c:tmult:t1")
+                    await feed(text="۰.۹")
+                    product = await get_product("rub_c2c")
+                    self.assertEqual(product["tiers"][0]["pricing_mode"], "multiplier")
+                    self.assertEqual(await compute_tier_rate(product, product["tiers"][0]), 3015)
+                    await feed(callback="pe:rub_c2c:tmode:t1")
+                    product = await get_product("rub_c2c")
+                    self.assertEqual(await compute_tier_rate(product, product["tiers"][0]), 3080)
+                    await feed(callback="tier:rub_c2c:t1")
+                    self.assertIn("۳,۰۸۰", api.call_args.args[0].text)
                 await feed(callback="acc:new:out")
 
-                async def download(file, destination):
-                    destination.write(b"\xff\xd8\xffimg")
-
-                with patch.object(Bot, "download", AsyncMock(side_effect=download)), patch.object(handlers, "read_receipt", AsyncMock(return_value={
-                    "amount": "150000000", "currency": "rial", "status": "pending", "warning": "در انتظار چرخه پل",
-                })):
+                before = len(await accounting.list_entries())
+                with patch.object(Bot, "download", AsyncMock()) as download:
                     await feed(photo=True)
-                photo_entry = (await accounting.list_entries())[0]
-                self.assertEqual(photo_entry["file_id"], "test-photo")
-                self.assertEqual(photo_entry["amount_rial"], 150000000)
-                self.assertEqual(photo_entry["status"], "draft")
-                self.assertEqual((await accounting.totals())["out"], 0)
+                    download.assert_not_called()
+                self.assertEqual(len(await accounting.list_entries()), before)
+                await feed(text="حسین - ۱۵٬۰۰۰٬۰۰۰")
+                outgoing = (await accounting.list_entries())[0]
+                self.assertEqual(outgoing["amount_rial"], 150000000)
+                self.assertEqual(accounting.entry_name(outgoing), "حسین")
+                await feed(callback=f"acc:do:posted:{outgoing['id']}:{outgoing['revision']}")
+                self.assertEqual((await accounting.totals())["out"], 150000000)
+                await feed(callback="acc:home")
+                report = api.call_args.args[0].text
+                self.assertIn("میرحسین", report)
+                self.assertIn("۸۵,۰۰۰,۰۰۰ تومان", report)
                 # A second click must not add another posting.
                 await feed(callback=f"acc:do:posted:{entry['id']}:{entry['revision']}")
                 self.assertEqual((await accounting.totals())["in"], 1000000000)
@@ -211,6 +280,13 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
 
 
 class AmountTests(unittest.TestCase):
+    def test_name_and_toman_line(self):
+        for text in ("میرحسین - ۱۰۰٬۰۰۰٬۰۰۰", "میرحسین-100,000,000 تومان", "میرحسین — ١٠٠٠٠٠٠٠٠"):
+            self.assertEqual(accounting.parse_manual_entry(text), ("میرحسین", 1000000000))
+        for text in ("میرحسین", " - 100", "میرحسین - -100", "میرحسین - 100 ریال", "میرحسین - 0", "123 - 100", "میرحسین - 10\nعلی - 20"):
+            with self.assertRaises(ValueError):
+                accounting.parse_manual_entry(text)
+
     def test_exact_amounts_and_sample_units(self):
         for value, expected in [("۱٬۰۰۰٬۰۰۰٬۰۰۰", 1000000000), ("۲,۱۰۰,۰۰۰,۰۰۰", 2100000000),
                                 ("۸۸۰٬۰۰۰٬۰۰۰", 880000000), ("۱۵۰٬۰۰۰٬۰۰۰", 150000000)]:
@@ -221,37 +297,6 @@ class AmountTests(unittest.TestCase):
         for value in ("nan", "inf", "-1", "0", "1.5", "1e9", str(10**16)):
             with self.assertRaises(ValueError):
                 accounting.parse_amount(value)
-
-
-class ReaderTests(unittest.IsolatedAsyncioTestCase):
-    async def test_missing_key_has_actionable_error(self):
-        with patch.object(receipts, "OPENAI_API_KEY", ""):
-            with self.assertRaisesRegex(receipts.ReceiptReadError, "OPENAI_API_KEY"):
-                await receipts.read_receipt(b"\xff\xd8\xfftest")
-
-    async def test_provider_json_is_validated_and_store_disabled(self):
-        value = {key: None for key in receipts.TEXT_FIELDS}
-        value.update(amount="1000000000", currency="rial", status="pending")
-        payload = {"status": "completed", "output": [{"type": "message", "content": [
-            {"type": "output_text", "text": json.dumps(value)}]}]}
-        response = httpx.Response(200, json=payload, request=httpx.Request("POST", "https://api.openai.com/v1/responses"))
-        post = AsyncMock(return_value=response)
-        with patch.object(receipts, "OPENAI_API_KEY", "test"), patch.object(httpx.AsyncClient, "post", post):
-            result = await receipts.read_receipt(b"\xff\xd8\xfftest")
-        self.assertEqual(result["status"], "pending")
-        self.assertFalse(post.call_args.kwargs["json"]["store"])
-
-    async def test_provider_failure_does_not_expose_credentials(self):
-        response = httpx.Response(401, text="secret", request=httpx.Request("POST", "https://api.openai.com/v1/responses"))
-        with patch.object(receipts, "OPENAI_API_KEY", "secret"), patch.object(httpx.AsyncClient, "post", AsyncMock(return_value=response)):
-            with self.assertRaises(receipts.ReceiptReadError) as raised:
-                await receipts.read_receipt(b"\xff\xd8\xfftest")
-        self.assertNotIn("secret", str(raised.exception))
-
-    async def test_non_image_and_oversized_files_rejected(self):
-        for data in (b"%PDF-test", b"\xff\xd8\xff" + b"0" * receipts.MAX_IMAGE_BYTES):
-            with self.assertRaises(receipts.ReceiptReadError):
-                await receipts.read_receipt(data)
 
 
 if __name__ == "__main__":

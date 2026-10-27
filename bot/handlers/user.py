@@ -22,7 +22,7 @@ from core.rates import compute_simple_rate, compute_tier_rate
 from core.texts import get_text
 from core.config import SUPPORT_USERNAME
 from core.jalali import jalali_datetime, jalali_from_db
-from core.utils import fa_digits, money, num, toman
+from core.utils import fa_digits, money
 from bot.keyboards import (
     agree_kb,
     back_menu_kb,
@@ -487,25 +487,12 @@ async def receive_payout(msg: Message, state: FSMContext):
             logger.warning("notify admin invoice %s failed: %s", aid, e)
 
 
-# ─────────────────────────── کیف پول / معاملات / پشتیبانی ───────────────────────────
+# ─────────────────────────── معاملات / پشتیبانی ───────────────────────────
 
 @router.callback_query(F.data == "wallet")
-async def cb_wallet(cb: CallbackQuery):
-    user = await get_or_create_user(cb.from_user.id, cb.from_user.username, cb.from_user.full_name)
-    txs = await get_user_transactions(user["id"], limit=100)
-    completed = sum(1 for t in txs if t["status"] == "completed")
-    text = (
-        "🏦 *کیف پول شما*\n\n"
-        f"🇷🇺 روبل: *{num(user.get('wallet_rub', 0))}*\n"
-        f"🇮🇷 تومان: *{toman(user['wallet'])}*\n\n"
-        f"✅ معاملات موفق: {fa_digits(completed)}\n\n"
-        "کیف پول شما به‌صورت خودکار پس از نشستن مبلغ واریزی به حساب مقصد و تأیید فیش واریزی شارژ می‌شود."
-    )
-    try:
-        await cb.message.edit_text(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
-    except Exception:
-        await cb.message.answer(text, reply_markup=back_menu_kb(), parse_mode="Markdown")
-    await cb.answer()
+async def removed_wallet(cb: CallbackQuery):
+    await cb.answer("کیف پول حذف شده است؛ منوی جدید را باز کنید.", show_alert=True)
+    await cb.message.answer("منوی اصلی", reply_markup=await main_menu(is_admin(cb.from_user.id)))
 
 
 @router.callback_query(F.data == "mytx")

@@ -17,7 +17,18 @@ from core.products import DEFAULT_PRODUCTS
 logger = logging.getLogger("pik.migrations")
 
 # نسخهٔ فعلی اسکیمای تنظیمات. هر بار که مهاجرت جدیدی افزوده شد، این عدد را زیاد کنید.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
+
+
+async def _migrate_exclusive_rub_pricing() -> None:
+    overrides = await get_json("products", {})
+    rub = overrides.get("rub_c2c")
+    if not isinstance(rub, dict) or not isinstance(rub.get("tiers"), list):
+        return
+    for tier in rub["tiers"]:
+        if tier.get("pricing_mode") not in ("offset", "multiplier"):
+            tier["pricing_mode"] = "offset" if float(tier.get("offset", 0) or 0) else "multiplier"
+    await set_json("products", overrides)
 
 
 async def _migrate_rub_five_tiers() -> None:
@@ -33,9 +44,11 @@ async def _migrate_rub_five_tiers() -> None:
         if source is None and tier["key"] in ("t1", "t2"):
             source = old.get("t3")  # Existing flat-rate installs retain their current price.
         if source:
-            for field in ("mult", "offset"):
+            for field in ("mult", "offset", "pricing_mode"):
                 if field in source:
                     tier[field] = source[field]
+            if "pricing_mode" not in source:
+                tier.pop("pricing_mode", None)
     rub["tiers"] = tiers
     await set_json("products", overrides)
 
@@ -142,6 +155,8 @@ async def run_migrations() -> None:
             await _migrate_rules_text()
         if current < 4:
             await _migrate_rub_five_tiers()
+        if current < 5:
+            await _migrate_exclusive_rub_pricing()
     except Exception as e:
         # مهاجرت نباید مانع بالا آمدن ربات شود؛ فقط لاگ می‌کنیم.
         logger.exception("migration failed: %s", e)

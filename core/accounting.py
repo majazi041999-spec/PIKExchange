@@ -33,6 +33,37 @@ def display_amount(rial: int) -> str:
     return fa_digits(f"{Decimal(rial) / 10:,.1f}".removesuffix(".0")) + " تومان"
 
 
+def validate_name(name: str) -> str:
+    name = name.strip()
+    if not name or len(name) > 80 or "\n" in name or "\r" in name or not any(c.isalpha() for c in name):
+        raise ValueError("نام معتبر، حداکثر ۸۰ کاراکتر، وارد کنید.")
+    return name
+
+
+def parse_toman(value: str) -> int:
+    """All manual ledger amounts are in toman, with an optional unit suffix."""
+    return parse_amount(value.strip().removesuffix("تومان").strip(), "toman")
+
+
+def parse_manual_entry(text: str) -> tuple[str, int]:
+    parts = re.split(r"[-–—]", text.strip(), maxsplit=1)
+    if len(parts) != 2 or "\n" in text or "\r" in text:
+        raise ValueError("نام و مبلغ را در یک خط بفرستید؛ مثال: میرحسین - ۱۰۰٬۰۰۰٬۰۰۰")
+    return validate_name(parts[0]), parse_toman(parts[1])
+
+
+def entry_name(entry: dict) -> str:
+    details = entry["receipt"]
+    return details.get("name") or details.get("sender" if entry["direction"] == "in" else "recipient") or "بدون نام"
+
+
+async def create_manual_draft(admin_id: int, direction: str, text: str) -> int:
+    name, amount_rial = parse_manual_entry(text)
+    return await create_draft(admin_id, direction, {
+        "name": name, "amount": str(amount_rial), "currency": "rial", "status": "manual",
+    })
+
+
 def normalize_reference(value: str) -> str:
     return re.sub(r"[\s\-\u200c\u200e\u200f]+", "", en_digits(value)).upper()
 
@@ -109,7 +140,7 @@ async def change_entry(entry_id, revision, admin_id, action, value=None):
             raise LedgerError("این پیام قدیمی است؛ سند را دوباره از فهرست باز کنید.")
         status = entry["status"]
         fields = {}
-        if action in ("amount_rial", "reference", "note", "direction", "sender", "recipient", "date", "source_bank", "destination_bank"):
+        if action in ("amount_rial", "reference", "note", "direction", "name", "sender", "recipient", "date", "source_bank", "destination_bank"):
             if status != "draft":
                 raise LedgerError("فقط پیش‌نویس قابل ویرایش است؛ سند ثبت‌شده را ابطال و دوباره ثبت کنید.")
             if action == "amount_rial":
@@ -118,7 +149,9 @@ async def change_entry(entry_id, revision, admin_id, action, value=None):
                 raise LedgerError("جهت معتبر نیست.")
             elif action == "reference":
                 value = normalize_reference(value)
-            if action in ("sender", "recipient", "date", "source_bank", "destination_bank"):
+            elif action == "name":
+                value = validate_name(value)
+            if action in ("name", "sender", "recipient", "date", "source_bank", "destination_bank"):
                 entry["receipt"][action] = str(value)[:200]
                 fields["receipt_json"] = json.dumps(entry["receipt"], ensure_ascii=False)
             else:

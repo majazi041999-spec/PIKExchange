@@ -96,10 +96,7 @@ async def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
             p = products.get(entry["id"])
             if p:
                 kb.row(_btn(p["title"], f"p:{entry['id']}", style=p.get("style", "primary")))
-    kb.row(
-        _btn("🏦 کیف پول", "wallet", style="success"),
-        _btn("📋 معاملات من", "mytx", style="primary"),
-    )
+    kb.row(_btn("📋 معاملات من", "mytx", style="primary"))
     kb.row(_btn("🆘 پشتیبانی و ارتباط با ما", "support", style="primary"))
     if is_admin:
         kb.row(_btn("⚙️ پنل مدیریت", "admin", style="danger"))

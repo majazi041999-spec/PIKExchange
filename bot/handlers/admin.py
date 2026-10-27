@@ -1,4 +1,4 @@
-"""پنل مدیریت داخل تلگرام: نرخ‌ها/محصولات، کارت، متن‌ها، تراکنش‌ها، کیف‌پول، پیام همگانی."""
+"""پنل مدیریت داخل تلگرام: نرخ‌ها/محصولات، کارت، متن‌ها، تراکنش‌ها، حسابداری، پیام همگانی."""
 import logging
 
 from aiogram import F, Router
@@ -8,7 +8,6 @@ from aiogram.types import CallbackQuery, Message
 
 from core.config import ADMIN_IDS, is_admin
 from core.db import (
-    adjust_wallet,
     get_all_user_tg_ids,
     get_or_create_user,
     get_recent_transactions,
@@ -30,7 +29,7 @@ from bot.keyboards import (
     back_menu_kb, color_enabled, contact_user_kb, payout_kb, set_color_enabled,
     set_suspended, styled_btn, suspended,
 )
-from bot.states import AddCard, AdminEdit, AdminMessageUser, AdminWallet, Broadcast, ConfirmTx
+from bot.states import AddCard, AdminEdit, AdminMessageUser, Broadcast, ConfirmTx
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -64,8 +63,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
     kb.row(_b("💱 نرخ‌ها و محصولات", "adm:products", style="success"))
     kb.row(_b("💳 اطلاعات کارت", "adm:card", style="primary"),
            _b("📝 متن‌ها", "adm:texts", style="primary"))
-    kb.row(_b("📊 تراکنش‌ها", "adm:tx", style="success"),
-           _b("👛 شارژ کیف پول", "adm:wallet", style="primary"))
+    kb.row(_b("📊 تراکنش‌ها", "adm:tx", style="success"))
     kb.row(_b("📒 حسابداری ورودی / خروجی", "acc:home", style="success"))
     kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live", style="primary"),
            _b("📢 پیام همگانی", "adm:bcast", style="danger"))
@@ -173,6 +171,9 @@ async def _product_view(pid: str):
             detail = f"• {t['label']}\n   بازه: {num(t.get('min',0))} تا {mx} | ضریب: {fa_digits(t['mult'])}"
             if "offset" in t:
                 detail += f" | آفست: {fa_digits(t.get('offset',0))} {currency}"
+            if pid == "rub_c2c":
+                method = "آفست (نرخ سایت + آفست)" if t.get("pricing_mode") == "offset" else "ضریب (نرخ سایت × ضریب)"
+                detail += f"\n   روش فعال: {method}"
             lines.append(detail)
             kb.row(
                 _b(f"✏️ برچسب «{t['key']}»", f"pe:{pid}:tlbl:{t['key']}"),
@@ -185,6 +186,9 @@ async def _product_view(pid: str):
                 )
             if "offset" in t:
                 kb.row(_b("➕➖ آفست این پله", f"pe:{pid}:toffset:{t['key']}"))
+            if pid == "rub_c2c":
+                target = "ضریب" if t.get("pricing_mode") == "offset" else "آفست"
+                kb.row(_b(f"🔁 فعال‌کردن {target}", f"pe:{pid}:tmode:{t['key']}"))
     elif p["type"] == "rub_single":
         lines.append(f"ضریب: *{fa_digits(p.get('mult',1))}*")
         kb.row(_b("⚖️ ویرایش ضریب", f"pe:{pid}:mult:-"),
@@ -242,6 +246,16 @@ async def cb_product_edit(cb: CallbackQuery, state: FSMContext):
         return
 
     # تغییرهای آنی (بدون ورودی):
+    if field == "tmode" and pid == "rub_c2c":
+        selected = next((t for t in p["tiers"] if t["key"] == tier), None)
+        if not selected:
+            return await cb.answer("پله یافت نشد.", show_alert=True)
+        selected["pricing_mode"] = "multiplier" if selected.get("pricing_mode") == "offset" else "offset"
+        await save_product(pid, p)
+        text, kb = await _product_view(pid)
+        await _open(cb, text, kb)
+        await cb.answer("روش محاسبه تغییر کرد.")
+        return
     if field == "col":
         order = ["buy", "sell", "avg"]
         cur = p.get("column", "buy")
@@ -275,6 +289,8 @@ async def cb_product_edit(cb: CallbackQuery, state: FSMContext):
         await cb.answer("گزینه نامعتبر.", show_alert=True)
         return
     prompt, vtype = prompts[field]
+    if pid == "rub_c2c" and field in ("tmult", "toffset"):
+        prompt += "\nبا ذخیره این مقدار، فقط همین روش در محاسبه نرخ اعمال می‌شود."
     await state.set_state(AdminEdit.waiting_value)
     await state.update_data(save="product", pid=pid, field=field, tier=tier, vtype=vtype)
     await cb.message.answer(f"✏️ {prompt}\n\nبرای انصراف /cancel را بزنید.")
@@ -553,6 +569,8 @@ async def on_value(msg: Message, state: FSMContext):
             return
         if field == "tmult":
             t["mult"] = value
+            if pid == "rub_c2c":
+                t["pricing_mode"] = "multiplier"
         elif field == "tmin":
             t["min"] = value
         elif field == "tmax":
@@ -561,6 +579,8 @@ async def on_value(msg: Message, state: FSMContext):
             t["label"] = value
         elif field == "toffset":
             t["offset"] = value
+            if pid == "rub_c2c":
+                t["pricing_mode"] = "offset"
     elif field == "mult":
         p["mult"] = value
     elif field == "lbl":
@@ -805,73 +825,12 @@ async def admin_message_send(msg: Message, state: FSMContext):
         await msg.answer(f"❌ ارسال پیام ناموفق بود (کاربر ممکن است ربات را بلاک کرده باشد).\n{str(e)[:150]}")
 
 
-# ─────────────────────────── شارژ کیف پول ───────────────────────────
-
+# پیام‌های قدیمی پنل ممکن است هنوز دکمهٔ حذف‌شده داشته باشند.
 @router.callback_query(F.data == "adm:wallet")
-async def cb_wallet_start(cb: CallbackQuery, state: FSMContext):
-    await state.set_state(AdminWallet.waiting_user)
-    await cb.message.answer(
-        "👛 آیدی عددی کاربر (telegram id) را بفرستید.\nبرای انصراف /cancel را بزنید."
-    )
-    await cb.answer()
-
-
-@router.message(AdminWallet.waiting_user)
-async def wallet_user(msg: Message, state: FSMContext):
-    try:
-        tg_id = parse_int(msg.text)
-    except (ValueError, TypeError):
-        await msg.answer("آیدی نامعتبر است. یک عدد بفرستید.")
-        return
-    user = await get_user_by_tg(tg_id)
-    if not user:
-        await msg.answer("کاربری با این آیدی یافت نشد (کاربر باید حداقل یک‌بار /start زده باشد).")
-        return
-    await state.update_data(user_id=user["id"], tg_id=tg_id)
-    await state.set_state(AdminWallet.waiting_amount)
-    await msg.answer(
-        f"👤 {user.get('full_name') or 'کاربر'}\n"
-        f"موجودی فعلی — 🇮🇷 {toman(user['wallet'])} | 🇷🇺 {num(user.get('wallet_rub', 0))} روبل\n\n"
-        "۱) مبلغ تغییر *تومان* را بفرستید (+ افزایش، - کاهش، 0 بدون تغییر):",
-        parse_mode="Markdown",
-    )
-
-
-@router.message(AdminWallet.waiting_amount)
-async def wallet_amount(msg: Message, state: FSMContext):
-    try:
-        delta = parse_int(msg.text)
-    except (ValueError, TypeError):
-        await msg.answer("مبلغ نامعتبر است. یک عدد بفرستید (0 برای بدون تغییر).")
-        return
-    await state.update_data(delta_toman=delta)
-    await state.set_state(AdminWallet.waiting_amount_rub)
-    await msg.answer("۲) حالا مبلغ تغییر *روبل* را بفرستید (+/-/0):", parse_mode="Markdown")
-
-
-@router.message(AdminWallet.waiting_amount_rub)
-async def wallet_amount_rub(msg: Message, state: FSMContext):
-    try:
-        delta_rub = parse_int(msg.text)
-    except (ValueError, TypeError):
-        await msg.answer("مبلغ نامعتبر است. یک عدد بفرستید (0 برای بدون تغییر).")
-        return
-    data = await state.get_data()
-    new_toman = await adjust_wallet(data["user_id"], data.get("delta_toman", 0), currency="toman")
-    new_rub = await adjust_wallet(data["user_id"], delta_rub, currency="rub")
+async def removed_wallet(cb: CallbackQuery, state: FSMContext):
     await state.clear()
-    await msg.answer(
-        f"✅ انجام شد. موجودی جدید:\n🇮🇷 {toman(new_toman)} | 🇷🇺 {num(new_rub)} روبل"
-    )
-    try:
-        await msg.bot.send_message(
-            data["tg_id"],
-            "🏦 موجودی کیف پول شما به‌روزرسانی شد.\n\n"
-            f"🇷🇺 روبل: {num(new_rub)}\n"
-            f"🇮🇷 تومان: {toman(new_toman)}",
-        )
-    except Exception:
-        pass
+    await cb.answer("کیف پول حذف شده است؛ از بخش حسابداری استفاده کنید.", show_alert=True)
+    await _open(cb, "🛠 پنل مدیریت", admin_menu_kb(), parse_mode=None)
 
 
 # ─────────────────────────── نرخ لحظه‌ای سایت ───────────────────────────

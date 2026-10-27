@@ -14,10 +14,6 @@ SUPPORT_USERNAME: str = os.getenv("SUPPORT_USERNAME", "").strip()
 RATE_URL: str = os.getenv("RATE_URL", "https://alanchand.com/en").strip()
 DB_PATH: str = os.getenv("DB_PATH", "pik.db").strip() or "pik.db"
 
-# Optional receipt reader. Without a key, manual accounting remains available.
-OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "").strip()
-RECEIPT_OCR_MODEL: str = os.getenv("RECEIPT_OCR_MODEL", "gpt-4.1-mini").strip()
-
 # مدت اعتبار نرخ اعلامی به کاربر (دقیقه)
 RATE_VALIDITY_MINUTES: int = int(os.getenv("RATE_VALIDITY_MINUTES", "30"))
 

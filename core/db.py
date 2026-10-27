@@ -1,6 +1,6 @@
 """لایه‌ی دیتابیس (SQLite با aiosqlite).
 
-سبک و ساده: کاربران، تراکنش‌ها، کیف‌پول و تنظیمات کلید-مقدار.
+سبک و ساده: کاربران، تراکنش‌ها، حسابداری و تنظیمات کلید-مقدار.
 """
 import json
 import logging
@@ -36,7 +36,6 @@ async def init_db() -> None:
                 telegram_id   INTEGER UNIQUE NOT NULL,
                 username      TEXT,
                 full_name     TEXT,
-                wallet        INTEGER NOT NULL DEFAULT 0,
                 is_blocked    INTEGER NOT NULL DEFAULT 0,
                 created_at    TEXT NOT NULL
             );
@@ -102,7 +101,6 @@ async def init_db() -> None:
             "ALTER TABLE transactions ADD COLUMN currency TEXT NOT NULL DEFAULT 'تومان'",
             "ALTER TABLE transactions ADD COLUMN equivalent INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE transactions ADD COLUMN payout_info TEXT DEFAULT ''",
-            "ALTER TABLE users ADD COLUMN wallet_rub INTEGER NOT NULL DEFAULT 0",
         ):
             try:
                 await conn.execute(stmt)
@@ -197,7 +195,7 @@ async def get_user_by_tg(telegram_id: int) -> Optional[Dict]:
 async def update_user(user_id: int, **fields) -> None:
     if not fields:
         return
-    allowed = {"username", "full_name", "wallet", "is_blocked"}
+    allowed = {"username", "full_name", "is_blocked"}
     sets = {k: v for k, v in fields.items() if k in allowed}
     if not sets:
         return
@@ -206,22 +204,6 @@ async def update_user(user_id: int, **fields) -> None:
     try:
         await conn.execute(f"UPDATE users SET {cols} WHERE id=?", (*sets.values(), user_id))
         await conn.commit()
-    finally:
-        await conn.close()
-
-
-async def adjust_wallet(user_id: int, delta: int, currency: str = "toman") -> int:
-    """موجودی کیف‌پول (تومان یا روبل) را تغییر می‌دهد و مقدار جدید را برمی‌گرداند."""
-    col = "wallet_rub" if currency == "rub" else "wallet"
-    conn = await _connect()
-    try:
-        cur = await conn.execute(f"SELECT {col} AS w FROM users WHERE id=?", (user_id,))
-        row = await cur.fetchone()
-        current = row["w"] if row else 0
-        new_val = max(0, current + int(delta))
-        await conn.execute(f"UPDATE users SET {col}=? WHERE id=?", (new_val, user_id))
-        await conn.commit()
-        return new_val
     finally:
         await conn.close()
 

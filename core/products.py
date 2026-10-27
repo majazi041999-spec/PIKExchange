@@ -62,11 +62,11 @@ DEFAULT_PRODUCTS: Dict[str, dict] = {
         "column": "sell",   # طبق نظر مالک، مبنا نرخ «فروش» سایت است
         "style": "success",
         "tiers": [
-            {"key": "t1", "label": "تینکفی - زیر ۵۰ میلیون تومان", "min": 0, "max": 50_000_000, "mult": 0.93, "offset": 0},
-            {"key": "t2", "label": "تینکفی - ۵۰ تا ۲۰۰ میلیون تومان", "min": 50_000_000, "max": 200_000_000, "mult": 0.92, "offset": 0},
-            {"key": "t3", "label": "تینکفی - بالای ۲۰۰ میلیون تومان", "min": 200_000_000, "max": 0, "mult": 0.915, "offset": 0},
-            {"key": "s1", "label": "تک‌فیش - زیر ۳۰ میلیون تومان", "min": 0, "max": 30_000_000, "mult": 0.965, "offset": 0},
-            {"key": "s2", "label": "تک‌فیش - بالای ۳۰ میلیون تومان", "min": 30_000_000, "max": 0, "mult": 0.96, "offset": 0},
+            {"key": "t1", "label": "تینکفی - زیر ۵۰ میلیون تومان", "min": 0, "max": 50_000_000, "mult": 0.93, "offset": 0, "pricing_mode": "multiplier"},
+            {"key": "t2", "label": "تینکفی - ۵۰ تا ۲۰۰ میلیون تومان", "min": 50_000_000, "max": 200_000_000, "mult": 0.92, "offset": 0, "pricing_mode": "multiplier"},
+            {"key": "t3", "label": "تینکفی - بالای ۲۰۰ میلیون تومان", "min": 200_000_000, "max": 0, "mult": 0.915, "offset": 0, "pricing_mode": "multiplier"},
+            {"key": "s1", "label": "تک‌فیش - زیر ۳۰ میلیون تومان", "min": 0, "max": 30_000_000, "mult": 0.965, "offset": 0, "pricing_mode": "multiplier"},
+            {"key": "s2", "label": "تک‌فیش - بالای ۳۰ میلیون تومان", "min": 30_000_000, "max": 0, "mult": 0.96, "offset": 0, "pricing_mode": "multiplier"},
         ],
     },
     "usd_stamped_sell": {
