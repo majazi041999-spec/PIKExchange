@@ -17,7 +17,24 @@ from core.products import DEFAULT_PRODUCTS
 logger = logging.getLogger("pik.migrations")
 
 # نسخهٔ فعلی اسکیمای تنظیمات. هر بار که مهاجرت جدیدی افزوده شد، این عدد را زیاد کنید.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+
+async def _migrate_tinkoff_flat_rate() -> None:
+    """Keep the configured highest Tinkoff tier, including its multiplier/offset."""
+    overrides = await get_json("products", {})
+    rub = overrides.get("rub_c2c")
+    if not isinstance(rub, dict) or not isinstance(rub.get("tiers"), list):
+        return
+    tiers = rub["tiers"]
+    highest = next((t for t in tiers if t.get("key") == "t3"), None)
+    highest = deepcopy(highest or DEFAULT_PRODUCTS["rub_c2c"]["tiers"][0])
+    highest.update(key="t3", label="نرخ تینکفی — همه مبالغ")
+    highest.setdefault("offset", 0)
+    highest.pop("min", None)
+    highest.pop("max", None)
+    rub["tiers"] = [highest] + [t for t in tiers if t.get("key") not in ("t1", "t2", "t3")]
+    await set_json("products", overrides)
 
 
 async def _migrate_products() -> None:
@@ -41,6 +58,8 @@ async def _migrate_products() -> None:
                 src = old_by_key.get(mult_from.get(nt["key"], ""))
                 if src and "mult" in src:
                     nt["mult"] = src["mult"]
+                if src and "offset" in src:
+                    nt["offset"] = src["offset"]
             rub["tiers"] = new_tiers
             changed = True
             logger.info("migrated rub_c2c tiers (preserved multipliers)")
@@ -114,9 +133,12 @@ async def run_migrations() -> None:
 
     logger.info("running settings migrations: %s → %s", current, SCHEMA_VERSION)
     try:
-        await _migrate_products()
-        await _migrate_product_titles()
-        await _migrate_rules_text()
+        if current < 2:
+            await _migrate_products()
+            await _migrate_product_titles()
+            await _migrate_rules_text()
+        if current < 3:
+            await _migrate_tinkoff_flat_rate()
     except Exception as e:
         # مهاجرت نباید مانع بالا آمدن ربات شود؛ فقط لاگ می‌کنیم.
         logger.exception("migration failed: %s", e)

@@ -66,6 +66,34 @@ async def init_db() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_tx_user ON transactions(user_id);
             CREATE INDEX IF NOT EXISTS idx_tx_status ON transactions(status);
+
+            CREATE TABLE IF NOT EXISTS ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                admin_id INTEGER NOT NULL,
+                direction TEXT NOT NULL CHECK(direction IN ('in', 'out')),
+                amount_rial INTEGER NOT NULL DEFAULT 0 CHECK(amount_rial >= 0),
+                status TEXT NOT NULL DEFAULT 'draft'
+                    CHECK(status IN ('draft', 'pending', 'posted', 'void')),
+                receipt_json TEXT NOT NULL DEFAULT '{}',
+                file_id TEXT NOT NULL DEFAULT '',
+                file_hash TEXT NOT NULL DEFAULT '',
+                reference TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT '',
+                revision INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ledger_hash_unique ON ledger(file_hash)
+                WHERE file_hash != '' AND status IN ('pending', 'posted');
+            CREATE UNIQUE INDEX IF NOT EXISTS ledger_ref_unique ON ledger(reference)
+                WHERE reference != '' AND status IN ('pending', 'posted');
+            CREATE TABLE IF NOT EXISTS ledger_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ledger_id INTEGER NOT NULL REFERENCES ledger(id),
+                admin_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
             """
         )
         await conn.commit()

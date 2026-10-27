@@ -66,6 +66,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
            _b("📝 متن‌ها", "adm:texts", style="primary"))
     kb.row(_b("📊 تراکنش‌ها", "adm:tx", style="success"),
            _b("👛 شارژ کیف پول", "adm:wallet", style="primary"))
+    kb.row(_b("📒 حسابداری ورودی / خروجی", "acc:home", style="success"))
     kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live", style="primary"),
            _b("📢 پیام همگانی", "adm:bcast", style="danger"))
     color_txt = "🎨 دکمه‌های رنگی: روشن ✅" if color_enabled() else "🎨 دکمه‌های رنگی: خاموش ⛔️"
@@ -170,6 +171,8 @@ async def _product_view(pid: str):
         for t in p["tiers"]:
             mx = "بی‌نهایت" if not t.get("max") else num(t["max"])
             detail = f"• {t['label']}\n   بازه: {num(t.get('min',0))} تا {mx} | ضریب: {fa_digits(t['mult'])}"
+            if pid == "rub_c2c" and t["key"] == "t3":
+                detail = f"• {t['label']}\n   ضریب: {fa_digits(t['mult'])}"
             if "offset" in t:
                 detail += f" | آفست: {fa_digits(t.get('offset',0))} {currency}"
             lines.append(detail)
@@ -177,10 +180,11 @@ async def _product_view(pid: str):
                 _b(f"✏️ برچسب «{t['key']}»", f"pe:{pid}:tlbl:{t['key']}"),
                 _b("⚖️ ضریب", f"pe:{pid}:tmult:{t['key']}"),
             )
-            kb.row(
-                _b("↧ سقف پایین", f"pe:{pid}:tmin:{t['key']}"),
-                _b("↥ سقف بالا", f"pe:{pid}:tmax:{t['key']}"),
-            )
+            if not (pid == "rub_c2c" and t["key"] == "t3"):
+                kb.row(
+                    _b("↧ سقف پایین", f"pe:{pid}:tmin:{t['key']}"),
+                    _b("↥ سقف بالا", f"pe:{pid}:tmax:{t['key']}"),
+                )
             if "offset" in t:
                 kb.row(_b("➕➖ آفست این پله", f"pe:{pid}:toffset:{t['key']}"))
     elif p["type"] == "rub_single":
@@ -231,6 +235,9 @@ async def cb_product_admin(cb: CallbackQuery):
 @router.callback_query(F.data.startswith("pe:"))
 async def cb_product_edit(cb: CallbackQuery, state: FSMContext):
     _, pid, field, tier = cb.data.split(":", 3)
+    if pid == "rub_c2c" and (tier in ("t1", "t2") or (tier == "t3" and field in ("tmin", "tmax"))):
+        await cb.answer("تینکوف اکنون یک نرخ برای همه مبالغ دارد؛ پنل را دوباره باز کنید.", show_alert=True)
+        return
     p = await get_product(pid)
     if not p:
         await cb.answer("محصول یافت نشد.", show_alert=True)
