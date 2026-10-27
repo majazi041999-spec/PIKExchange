@@ -912,29 +912,7 @@ async def bcast_send(msg: Message, state: FSMContext):
 
 
 
-# ─────────────────────────── اطلاع‌رسانی آپدیت ───────────────────────────
-
+# دکمه‌های اطلاع‌رسانی قدیمی دیگر پیام همگانی ارسال نمی‌کنند.
 @router.callback_query(F.data.startswith("updbc:"))
-async def cb_update_broadcast(cb: CallbackQuery):
-    import asyncio
-    from core.updates import DEFAULT_UPDATE_TEXT
-
-    build = cb.data.split(":", 1)[1]
-    ids = await get_all_user_tg_ids()
-    text = await get_setting("update_text", "") or DEFAULT_UPDATE_TEXT
-    await cb.answer("در حال ارسال…")
-    sent = 0
-    for uid in ids:
-        try:
-            await cb.bot.send_message(uid, text)
-            sent += 1
-        except Exception:
-            pass
-        await asyncio.sleep(0.05)
-    await set_setting("pending_build", "")
-    try:
-        await cb.message.edit_text(
-            f"✅ اطلاع‌رسانی آپدیت (build {build}) به {fa_digits(sent)} کاربر ارسال شد."
-        )
-    except Exception:
-        await cb.message.answer(f"✅ ارسال شد به {fa_digits(sent)} کاربر.")
+async def disabled_update_broadcast(cb: CallbackQuery):
+    await cb.answer("اطلاع‌رسانی آپدیت غیرفعال شده است.", show_alert=True)

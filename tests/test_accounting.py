@@ -274,6 +274,13 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
                 # A second click must not add another posting.
                 await feed(callback=f"acc:do:posted:{entry['id']}:{entry['revision']}")
                 self.assertEqual((await accounting.totals())["in"], 1000000000)
+                # Old update buttons must never broadcast to users again.
+                api.reset_mock()
+                with patch.object(admin, "get_all_user_tg_ids", AsyncMock()) as recipients:
+                    await feed(callback="updbc:old-build")
+                    recipients.assert_not_called()
+                self.assertEqual(api.call_count, 1)
+                self.assertEqual(type(api.call_args.args[0]).__name__, "AnswerCallbackQuery")
         finally:
             await dp.storage.close()
             await bot.session.close()

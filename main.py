@@ -51,7 +51,6 @@ async def main():
 
     from core.config import ADMIN_IDS, BOT_TOKEN
     from core.db import init_db
-    from core.updates import notify_admins_new_build
     from bot.handlers import accounting, admin, user
 
     if not BOT_TOKEN or len(BOT_TOKEN) < 20:
@@ -85,11 +84,6 @@ async def main():
     logger.info(f"🤖 ربات @{me.username} آماده | ادمین‌ها: {ADMIN_IDS}")
 
     asyncio.create_task(_rate_refresh_worker())
-    try:
-        await notify_admins_new_build(bot)
-    except Exception as e:
-        logger.warning("update notify failed: %s", e)
-
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
