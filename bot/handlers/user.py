@@ -74,13 +74,8 @@ async def cmd_start(msg: Message, state: FSMContext):
 @router.callback_query(F.data == "menu")
 async def cb_menu(cb: CallbackQuery, state: FSMContext):
     await state.clear()
-    kb = await main_menu(is_admin(cb.from_user.id))
-    welcome = await get_text("text_welcome")
-    try:
-        await cb.message.edit_text(welcome, reply_markup=kb, parse_mode="Markdown")
-    except Exception:
-        await cb.message.answer(welcome, reply_markup=kb, parse_mode="Markdown")
     await cb.answer()
+    await _send_menu(cb.message, cb.from_user.id)
 
 
 # لغو باید قبل از هندلرهای حالت (state) ثبت شود تا در هر مرحله‌ای کار کند
