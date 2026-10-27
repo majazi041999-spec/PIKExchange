@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#087f69"><meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="PIK Admin">
+  <meta name="description" content="پنل مدیریت صرافی پیک">
+  <title>مدیریت پیک | PIK Exchange</title>
+  <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<section id="login-view" hidden>
+  <div class="login-brand"><img src="/assets/banks/pik.png" alt="PIK"><span>PIK EXCHANGE</span><span class="pill">مدیریت</span></div>
+  <div class="login-grid"><div class="login-copy"><span class="eyebrow">همه‌چیز، در یک نگاه.</span><h1>کنترلِ ساده.<br>با خیال راحت.</h1><p>معامله‌ها، حساب‌ها و ارتباط با مشتریان؛<br>همراه شما، روی هر دستگاه.</p><div class="login-art"><div class="art-circle"></div><img src="/assets/banks/tbank.png" alt=""><img src="/assets/banks/sber.png" alt=""><img src="/assets/banks/mellat.png" alt=""><div class="art-caption">صرافی پیک <span>PIK EXCHANGE</span></div></div></div>
+  <form id="login-form" class="login-card"><span class="icon-disc" id="login-icon"></span><h2>خوش آمدید</h2><p class="muted">برای ورود، اطلاعات تنظیم‌شده در ربات را وارد کنید.</p><label>نام کاربری<input name="username" autocomplete="username" autocapitalize="none" dir="ltr" required maxlength="32" placeholder="نام کاربری شما"></label><label>رمز عبور<input type="password" name="password" autocomplete="current-password" dir="ltr" required minlength="10" maxlength="128" placeholder="رمز عبور"></label><p id="login-error" role="alert"></p><button class="btn primary wide" type="submit">ورود به پنل <span>←</span></button><div class="login-help">هنوز دسترسی ندارید؟<br>در ربات، «مدیریت ← پنل وب و رمز ورود» یا <bdi>/webpanel</bdi> را باز کنید.</div><div class="secure-note">دسترسی ویژهٔ ادمین‌های ربات</div></form></div>
+</section>
+<div id="app" hidden>
+  <aside id="sidebar"><a class="brand" href="#dashboard"><img src="/assets/banks/pik.png" alt="PIK"><div>صرافی پیک<small>PIK EXCHANGE</small></div></a><div class="nav-caption">فضای مدیریت</div><nav id="navigation"></nav><div class="sidebar-foot"><a href="https://t.me/addemoji/PIK_Banks_Bahram_ru_by_PIKexchange_bot" target="_blank" rel="noopener"><img src="/assets/banks/tbank.png" alt="">پک ایموجی بانک‌ها ↗</a><button data-action="install">نصب روی گوشی</button></div></aside>
+  <div id="mobile-scrim" hidden></div>
+  <div class="workspace"><header><button class="icon-btn mobile-only" data-action="menu" aria-label="باز کردن منو" id="menu-button"></button><div class="breadcrumb">فضای مدیریت <span>/</span> <b id="breadcrumb">نمای کلی</b></div><div class="header-actions"><span class="connection"><i></i> متصل به ربات</span><button class="avatar" data-action="account" aria-label="حساب ادمین">P</button></div></header><main id="main" tabindex="-1"></main><footer>PIK Exchange <span>همراه کسب‌وکار شما</span><span id="clock"></span></footer></div>
+  <nav id="bottom-nav"></nav>
+</div>
+<dialog id="modal"><div class="modal-head"><h2 id="modal-title"></h2><button class="icon-btn" data-action="close" aria-label="بستن">×</button></div><div id="modal-body"></div></dialog>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+</body></html>

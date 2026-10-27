@@ -43,6 +43,18 @@ async def _rate_refresh_worker():
         await asyncio.sleep(120)
 
 
+async def _settings_refresh_worker():
+    from core.db import get_setting
+    from bot.keyboards import set_color_enabled, set_suspended
+    while True:
+        try:
+            set_color_enabled(await get_setting("buttons_colored", "0") == "1")
+            set_suspended(await get_setting("suspended", "0") == "1")
+        except Exception:
+            logger.warning("settings refresh failed")
+        await asyncio.sleep(5)
+
+
 async def main():
     from aiogram import Bot, Dispatcher
     from aiogram.client.default import DefaultBotProperties
@@ -51,7 +63,7 @@ async def main():
 
     from core.config import ADMIN_IDS, BOT_TOKEN
     from core.db import init_db
-    from bot.handlers import accounting, admin, card_archive, subscribers, user
+    from bot.handlers import accounting, admin, card_archive, subscribers, user, web_access
 
     if not BOT_TOKEN or len(BOT_TOKEN) < 20:
         logger.error("❌ BOT_TOKEN در فایل .env تنظیم نشده!")
@@ -60,6 +72,8 @@ async def main():
         logger.warning("⚠️ ADMIN_IDS تنظیم نشده؛ پنل مدیریت در دسترس نخواهد بود.")
 
     await init_db()
+    from core.web_auth import init_web
+    await init_web()
     logger.info("✅ دیتابیس آماده")
 
     # مهاجرت‌های نسخه‌دار (هماهنگ‌سازی بازنویسی‌های ذخیره‌شده با ساختار جدید)
@@ -78,6 +92,7 @@ async def main():
     dp = Dispatcher(storage=MemoryStorage())
 
     # ترتیب مهم است: admin (فیلترشده برای ادمین) قبل از user
+    dp.include_router(web_access.router)
     dp.include_router(admin.router)
     dp.include_router(accounting.router)
     dp.include_router(card_archive.router)
@@ -88,6 +103,7 @@ async def main():
     logger.info(f"🤖 ربات @{me.username} آماده | ادمین‌ها: {ADMIN_IDS}")
 
     asyncio.create_task(_rate_refresh_worker())
+    asyncio.create_task(_settings_refresh_worker())
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 

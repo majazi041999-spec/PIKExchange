@@ -1,0 +1,22 @@
+[Unit]
+Description=PIK Exchange private administration panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/PIKExchangeBot
+EnvironmentFile=/opt/PIKExchangeBot/.env
+Environment=PIK_PUBLIC_URL=https://65.109.182.47:9443
+ExecStart=/opt/PIKExchangeBot/.venv/bin/python -m webapp.server
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/PIKExchangeBot
+
+[Install]
+WantedBy=multi-user.target

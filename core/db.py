@@ -314,6 +314,20 @@ async def update_transaction(tx_id: int, **fields) -> None:
         await conn.close()
 
 
+async def resolve_transaction(tx_id: int, status: str, equivalent: int = 0, note: str = "") -> bool:
+    """One atomic winner when Telegram and the web panel review the same transfer."""
+    if status not in ("completed", "canceled"):
+        raise ValueError("وضعیت نهایی نامعتبر است.")
+    conn = await _connect()
+    try:
+        cur = await conn.execute("UPDATE transactions SET status=?,equivalent=?,admin_note=?,updated_at=? WHERE id=? AND status IN ('awaiting_receipt','receipt_sent')",
+                                 (status, equivalent, note, _now(), tx_id))
+        await conn.commit()
+        return cur.rowcount > 0
+    finally:
+        await conn.close()
+
+
 async def get_user_transactions(user_id: int, limit: int = 15) -> List[Dict]:
     conn = await _connect()
     try:

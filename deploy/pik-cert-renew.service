@@ -1,0 +1,7 @@
+[Unit]
+Description=Renew PIK IP TLS certificate
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/pik-acme/bin/certbot renew --quiet --deploy-hook "systemctl reload nginx"

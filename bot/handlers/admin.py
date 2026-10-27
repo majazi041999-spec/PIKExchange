@@ -17,6 +17,7 @@ from core.db import (
     set_setting,
     transaction_stats,
     update_transaction,
+    resolve_transaction,
 )
 from core.cards import (
     add_card, delete_card, get_active_card, get_cards, set_active_card, set_card_account,
@@ -67,6 +68,7 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
     kb.row(_b("📒 حسابداری ورودی / خروجی", "acc:home", style="success"))
     kb.row(_b("👥 مشترکین و درخواست نرخ", "subs:list:0", style="primary"))
     kb.row(_b("🗂 بایگانی کارت‌های کاربران", "arc:home", style="primary"))
+    kb.row(_b("🌐 پنل وب و رمز ورود", "web:home", style="primary"))
     kb.row(_b("📈 نرخ لحظه‌ای سایت", "adm:live", style="primary"),
            _b("📢 پیام همگانی", "adm:bcast", style="danger"))
     color_txt = "🎨 دکمه‌های رنگی: روشن ✅" if color_enabled() else "🎨 دکمه‌های رنگی: خاموش ⛔️"
@@ -667,7 +669,8 @@ async def _approve_tx(cb_or_msg, tx: dict, amount: int, admin_id: int, bot):
     unit = tx.get("unit") or ""
     rate = int(tx.get("rate") or 0)
     equivalent = int(round(amount / rate)) if (amount > 0 and rate > 0) else 0
-    await update_transaction(tx["id"], status="completed", equivalent=equivalent)
+    if not await resolve_transaction(tx["id"], "completed", equivalent):
+        return False
 
     lines = [
         "✅ *تأیید فیش و بسته‌شدن نرخ*",
@@ -700,6 +703,7 @@ async def _approve_tx(cb_or_msg, tx: dict, amount: int, admin_id: int, bot):
         logger.warning("notify user on approve failed: %s", e)
 
     await _send_contact_tools(bot, admin_id, tx)
+    return True
 
 
 @router.callback_query(F.data.startswith("txok:"))
@@ -746,7 +750,8 @@ async def confirm_amount(msg: Message, state: FSMContext):
         await msg.answer("مبلغ نامعتبر است. یک عدد بفرستید (یا 0 برای رد کردن محاسبه).")
         return
     await state.clear()
-    await _approve_tx(msg, tx, amount, msg.from_user.id, msg.bot)
+    if not await _approve_tx(msg, tx, amount, msg.from_user.id, msg.bot):
+        return await msg.answer("این معامله قبلاً توسط ادمین دیگری بررسی شده است.")
     if amount > 0 and int(tx.get("rate") or 0) > 0:
         equivalent = int(round(amount / int(tx["rate"])))
         await msg.answer(
@@ -767,7 +772,8 @@ async def cb_txno(cb: CallbackQuery):
     if tx["status"] in ("completed", "canceled"):
         await cb.answer("این معامله قبلاً بررسی شده است.", show_alert=True)
         return
-    await update_transaction(tx_id, status="canceled")
+    if not await resolve_transaction(tx_id, "canceled"):
+        return await cb.answer("این معامله قبلاً بررسی شده است.", show_alert=True)
     try:
         await cb.bot.send_message(
             tx["telegram_id"],
