@@ -92,5 +92,5 @@ window.addEventListener('hashchange',()=>{if(S.me&&location.hash.slice(1)!==S.vi
 window.addEventListener('beforeinstallprompt',ev=>{ev.preventDefault();S.install=ev});
 async function start(){try{S.me=await api('me');S.csrf=S.me.csrf;$('#login-view').hidden=true;$('#app').hidden=false;$('#clock').textContent=new Intl.DateTimeFormat('fa-IR',{dateStyle:'medium',timeZone:'Asia/Tehran'}).format(new Date());const v=location.hash.slice(1);await load(sections.some(x=>x[0]===v)?v:'dashboard')}catch{showLogin()}}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
-setInterval(()=>{if(S.me&&!document.hidden&&!$('#modal').open&&['dashboard','broadcasts'].includes(S.view))load()},45000);
+setInterval(()=>{if(S.me&&!document.hidden&&!$('#modal').open&&['dashboard','broadcasts'].includes(S.view)&&!(S.view==='broadcasts'&&document.querySelector('[data-form="broadcast"] textarea')?.value.trim()))load()},45000);
 start();
