@@ -134,7 +134,8 @@ def tiers_kb(pid: str, tiers: list, back_data: str = "menu") -> InlineKeyboardMa
     kb = InlineKeyboardBuilder()
     for t in tiers:
         is_tinkoff = pid == "rub_c2c" and t["key"] in ("t1", "t2", "t3")
-        custom_icon = emoji_id("tbank") if is_tinkoff else None
+        is_single = pid == "rub_c2c" and t["key"] in ("s1", "s2")
+        custom_icon = emoji_id("tbank" if is_tinkoff else "dollar_bundle") if is_tinkoff or is_single else None
         button = _btn(t["label"] if custom_icon else f"💹 {t['label']}", f"tier:{pid}:{t['key']}", style="primary")
         if custom_icon:
             button.icon_custom_emoji_id = custom_icon
