@@ -82,6 +82,8 @@ async def security(request, handler):
                 if not auth:
                     return web.json_response({'error': 'برای ادامه وارد شوید.'}, status=401)
                 request['auth'] = auth
+                if request.path in ('/api/ledger', '/api/dashboard') and request.headers.get('X-PIK-UI-Version') != '2':
+                    return web.json_response({'error': 'واحدهای حسابداری به‌روز شده‌اند؛ صفحهٔ مرورگر را یک‌بار بارگذاری مجدد کنید.'}, status=409, headers={'Cache-Control': 'no-store'})
                 if request.method not in ('GET', 'HEAD') and not hmac.compare_digest(request.headers.get('X-CSRF-Token', ''), auth['csrf']):
                     raise web.HTTPForbidden(text='نشست تغییر کرده؛ صفحه را تازه کنید.')
         response = await handler(request)
@@ -291,9 +293,20 @@ async def mutate(request):
                                                       int(data['user_tg_id']) if data.get('user_tg_id') else None, int(data['id']) if data.get('id') else None)
     elif section == 'ledger':
         if data.get('action') == 'create':
+            if data.get('currency') != accounting.currency_for_direction(data.get('direction')):
+                raise ValueError('واحد سند تغییر کرده؛ صفحه را بارگذاری مجدد کنید. ورودی تومان و خروجی روبل است.')
             entry_id = await accounting.create_manual_draft(admin_id, data.get('direction'), text_field(data, 'name', 80, True) + ' - ' + text_field(data, 'amount', 40, True))
             result['id'] = entry_id
         else:
+            if data.get('action') == 'edit':
+                entry = await accounting.get_entry(int(data['id']))
+                values = data.get('value', {})
+                if not entry or not isinstance(values, dict):
+                    raise ValueError('سند معتبر نیست.')
+                direction = values.get('direction', entry['direction'])
+                currency = accounting.currency_for_direction(direction) if direction != entry['direction'] else entry['currency']
+                if values.get('currency') != currency:
+                    raise ValueError('واحد فرم با سند یکسان نیست؛ سند را دوباره باز کنید.')
             await accounting.change_entry(int(data['id']), int(data['revision']), admin_id, data['action'], data.get('value'))
     elif section == 'transaction':
         tx = await get_transaction(int(data['id']))

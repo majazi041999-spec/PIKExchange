@@ -20,7 +20,7 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         for p in self.patches:
             p.start()
         self.bot = SimpleNamespace(session=SimpleNamespace(close=AsyncMock()), send_message=AsyncMock(), download=AsyncMock())
-        self.client = TestClient(TestServer(create_app(False, self.bot)), cookie_jar=CookieJar(unsafe=True))
+        self.client = TestClient(TestServer(create_app(False, self.bot)), cookie_jar=CookieJar(unsafe=True), headers={"X-PIK-UI-Version": "2"})
         await self.client.start_server()
         await web_auth.set_credentials(1, 'adminone', 'Test password.2026')
 
@@ -54,15 +54,15 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_ledger_confirmation_balance_and_stale_revision(self):
         csrf = await self.login()
-        r = await self.post('ledger', {'action': 'create', 'direction': 'in', 'name': 'میرحسین', 'amount': '۱۰۰٬۰۰۰٬۰۰۰'}, csrf)
+        r = await self.post('ledger', {'action': 'create', 'direction': 'in', 'name': 'میرحسین', 'amount': '۱۰۰٬۰۰۰٬۰۰۰', 'currency': 'IRR'}, csrf)
         entry_id = (await r.json())['id']
-        self.assertEqual((await accounting.totals())['in'], 0)
+        self.assertEqual((await accounting.totals())['IRR']['in'], 0)
         data = {'id': entry_id, 'revision': 0, 'action': 'posted'}
         results = await asyncio.gather(self.post('ledger', data, csrf), self.post('ledger', data, csrf))
         self.assertEqual(sorted(r.status for r in results), [200, 400])
-        self.assertEqual((await accounting.totals())['in'], 1_000_000_000)
+        self.assertEqual((await accounting.totals())['IRR']['in'], 1_000_000_000)
         await self.post('ledger', {'id': entry_id, 'revision': 1, 'action': 'void'}, csrf)
-        self.assertEqual((await accounting.totals())['in'], 0)
+        self.assertEqual((await accounting.totals())['IRR']['in'], 0)
 
     async def test_offset_mode_fixed_tiers_and_bans(self):
         csrf = await self.login()
@@ -88,6 +88,24 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         a, b = await asyncio.gather(self.post('transaction', {'id': tx, 'action': 'approve', 'amount': 10000000}, csrf), self.post('transaction', {'id': tx, 'action': 'reject'}, csrf))
         self.assertEqual(sorted([a.status, b.status]), [200, 400])
         self.assertIn((await db.get_transaction(tx))['status'], ('completed', 'canceled'))
+
+    async def test_outgoing_roubles_explicit_unit_and_atomic_web_edit(self):
+        csrf = await self.login()
+        data = {'action': 'create', 'direction': 'out', 'name': 'حسین', 'amount': '۱۲۳٫۴۵', 'currency': 'RUB'}
+        r = await self.post('ledger', data, csrf)
+        self.assertEqual(r.status, 200)
+        entry_id = (await r.json())['id']
+        self.assertEqual((await accounting.get_entry(entry_id))['amount_minor'], 12345)
+        self.assertEqual((await self.post('ledger', {**data, 'currency': 'IRR'}, csrf)).status, 400)
+        self.assertEqual((await self.client.get('/api/ledger', headers={'X-PIK-UI-Version': '1'})).status, 409)
+        values = {'name': 'حسین', 'direction': 'out', 'currency': 'RUB', 'amount': '۹۹۹٫۹۵'}
+        r = await self.post('ledger', {'id': entry_id, 'revision': 0, 'action': 'edit', 'value': values}, csrf)
+        self.assertEqual(r.status, 200)
+        entry = await accounting.get_entry(entry_id)
+        self.assertEqual((entry['amount_minor'], entry['currency'], entry['revision']), (99995, 'RUB', 1))
+        await self.post('ledger', {'id': entry_id, 'revision': 1, 'action': 'posted'}, csrf)
+        self.assertEqual((await accounting.totals())['RUB']['out'], 99995)
+        self.assertEqual((await accounting.totals())['IRR']['out'], 0)
 
     async def test_throttle_and_revoked_admin(self):
         for i in range(12):

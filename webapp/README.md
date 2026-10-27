@@ -6,6 +6,16 @@ quote history, customer card archive, deposit cards including images, product
 pricing settings, bot text/settings, direct messages, and manual broadcasts.
 Dashboard activity and broadcast progress refresh every 45 seconds while visible.
 
+Manual accounting income is in toman; outgoing payments are in roubles. Ledger
+amounts carry an explicit currency, with integer rial/kopeck storage. Totals are
+reported separately, with no combined cross-currency balance. Existing rial
+records retain their original money and currency. Direction changes clear the
+amount until it is entered in the new unit. Browser edits save atomically.
+Use `tools/deploy_ledger_currency.py` for the first currency-schema upgrade; it
+stops both processes, backs up SQLite, verifies original ledger fields remain
+unchanged, and restarts both services. Stale browser forms are rejected until
+reloaded so the former outgoing-toman form cannot submit a rouble payment.
+
 Production: https://65.109.182.47:9443
 
 Each configured Telegram admin sets their own username/password using `/webpanel`

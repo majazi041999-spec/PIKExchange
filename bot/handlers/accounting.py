@@ -1,4 +1,4 @@
-"""Private administrator ledger: name and amount in toman, with a readable report."""
+"""Private administrator ledger: incoming toman and outgoing roubles."""
 from html import escape
 
 from aiogram import F, Router
@@ -25,7 +25,7 @@ class AccountingFlow(StatesGroup):
 
 
 STATUS = {"draft": "پیش‌نویس", "pending": "در انتظار وصول", "posted": "قطعی", "void": "باطل"}
-FIELDS = {"name": "نام", "amount_rial": "مبلغ به تومان", "note": "شرح"}
+FIELDS = {"name": "نام", "amount": "مبلغ", "note": "شرح"}
 
 
 def _kb(rows):
@@ -38,11 +38,15 @@ def _kb(rows):
 def report_text(items, sums, offset=0):
     lines = [
         "📒 <b>دفتر ورودی و خروجی</b>",
-        f"🟢 جمع ورودی: <b>{ledger.display_amount(sums['in'])}</b>",
-        f"🔴 جمع خروجی: <b>{ledger.display_amount(sums['out'])}</b>",
-        f"💰 مانده: <b>{ledger.display_amount(sums['in'] - sums['out'])}</b>",
+        f"🟢 جمع ورودی: <b>{ledger.display_amount(sums['IRR']['in'], 'IRR')}</b>",
+        f"🔴 جمع خروجی: <b>{ledger.display_amount(sums['RUB']['out'], 'RUB')}</b>",
+        "تومان و روبل جداگانه گزارش می‌شوند.",
         "جمع‌ها فقط شامل اسناد قطعی هستند.",
     ]
+    if sums['IRR']['out']:
+        lines.append(f"خروجی قدیمی به تومان: <b>{ledger.display_amount(sums['IRR']['out'])}</b>")
+    if sums['RUB']['in']:
+        lines.append(f"ورودی روبلی: <b>{ledger.display_amount(sums['RUB']['in'], 'RUB')}</b>")
     if sums["pending"]:
         lines.append(f"⏳ در انتظار وصول: {fa_digits(sums['pending'])} سند")
     lines.extend(["", f"<b>فهرست اسناد · صفحه {fa_digits(offset // PAGE_SIZE + 1)}</b>"])
@@ -54,7 +58,7 @@ def report_text(items, sums, offset=0):
         lines.extend([
             "━━━━━━━━━━━━━━━━",
             f"{icon} <b>{name}</b> — {direction}",
-            f"💵 <b>{ledger.display_amount(entry['amount_rial'])}</b>",
+            f"💵 <b>{ledger.display_entry(entry)}</b>",
             f"سند {fa_digits(entry['id'])} · {STATUS[entry['status']]}",
             f"🗓 {escape(jalali_from_db(entry['created_at']))}",
         ])
@@ -102,9 +106,11 @@ async def new_entry(cb: CallbackQuery, state: FSMContext):
     await state.update_data(direction=direction)
     await cb.answer()
     title = "ورودی" if direction == "in" else "خروجی"
+    unit = ledger.CURRENCIES[ledger.currency_for_direction(direction)]['label']
+    example = '۱۰۰٬۰۰۰٬۰۰۰' if direction == 'in' else '۳۰٬۰۰۰'
     await cb.message.answer(
-        f"✍️ ثبت {title}\n\nنام و مبلغ را به این شکل بفرستید:\nمیرحسین - ۱۰۰٬۰۰۰٬۰۰۰\n\n"
-        "همه مبلغ‌ها به تومان هستند. نوشتن «تومان» اختیاری است.\nبرای انصراف /cancel را بزنید.",
+        f"✍️ ثبت {title} به {unit}\n\nنام و مبلغ را به این شکل بفرستید:\nمیرحسین - {example}\n\n"
+        f"مبلغ این سند به {unit} است. نوشتن «{unit}» اختیاری است.\nبرای انصراف /cancel را بزنید.",
         parse_mode=None, reply_markup=_kb([[("بازگشت", "acc:home")]]))
 
 
@@ -128,7 +134,7 @@ async def show_entry(msg, entry_id):
     direction = "ورودی" if entry["direction"] == "in" else "خروجی"
     text = (f"📒 <b>سند {fa_digits(entry_id)} · {direction}</b>\n\n"
             f"👤 <b>{escape(ledger.entry_name(entry))}</b>\n"
-            f"💵 <b>{ledger.display_amount(entry['amount_rial'])}</b>\n"
+            f"💵 <b>{ledger.display_entry(entry)}</b>\n"
             f"وضعیت: {STATUS[entry['status']]}\n"
             f"🗓 {escape(jalali_from_db(entry['created_at']))}")
     if entry["note"]:
@@ -137,7 +143,9 @@ async def show_entry(msg, entry_id):
     rows = []
     if entry["status"] == "draft":
         text += "\n\nنام، مبلغ و جهت را بررسی و ثبت را تأیید کنید."
-        rows.append([(f"✏️ {title}", f"acc:edit:{field}:{suffix}") for field, title in FIELDS.items()])
+        if not entry['amount_minor']:
+            text += f"\nمبلغ جدید را به {entry['currency_label']} وارد کنید."
+        rows.append([(f"✏️ {'مبلغ به ' + entry['currency_label'] if field == 'amount' else title}", f"acc:edit:{field}:{suffix}") for field, title in FIELDS.items()])
         rows.append([("🔄 تغییر ورودی/خروجی", f"acc:do:direction:{suffix}")])
         if entry["receipt"].get("status", "manual") in ("success", "manual"):
             rows.append([("✅ تأیید و ثبت", f"acc:do:posted:{suffix}")])
@@ -146,7 +154,7 @@ async def show_entry(msg, entry_id):
         rows.append([("✅ تأیید وصول و ثبت قطعی", f"acc:do:settle:{suffix}")])
     if entry["status"] != "void":
         rows.append([("ابطال سند", f"acc:void:{suffix}")])
-    rows.append([("📋 فهرست و مانده", "acc:home")])
+    rows.append([("📋 فهرست و جمع‌ها", "acc:home")])
     await msg.answer(text, parse_mode="HTML", reply_markup=_kb(rows))
 
 
@@ -168,6 +176,8 @@ async def view(cb: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("acc:edit:"))
 async def edit(cb: CallbackQuery, state: FSMContext):
     _, _, field, entry_id, revision = cb.data.split(":")
+    if field == 'amount_rial':
+        field = 'amount'
     if field not in FIELDS:
         return await cb.answer("این گزینه تغییر کرده؛ سند را دوباره باز کنید.", show_alert=True)
     entry = await ledger.get_entry(int(entry_id))
@@ -176,7 +186,7 @@ async def edit(cb: CallbackQuery, state: FSMContext):
     await state.set_state(AccountingFlow.editing)
     await state.update_data(entry_id=int(entry_id), revision=int(revision), field=field)
     await cb.answer()
-    prompts = {"amount_rial": "مبلغ جدید به تومان را بفرستید؛ مثال: ۱۰۰٬۰۰۰٬۰۰۰",
+    prompts = {"amount": f"مبلغ جدید به {entry['currency_label']} را بفرستید.",
                "name": "نام جدید را بفرستید.", "note": "شرح را بفرستید (برای خالی کردن: -)."}
     await cb.message.answer(prompts[field] + "\nانصراف: /cancel", parse_mode=None)
 
@@ -189,8 +199,6 @@ async def edit_value(msg: Message, state: FSMContext):
         return await msg.answer("متن یا عدد معتبر، حداکثر ۲۰۰ کاراکتر بفرستید.")
     try:
         value = "" if raw == "-" else raw
-        if data["field"] == "amount_rial":
-            value = ledger.parse_toman(raw)
         await ledger.change_entry(data["entry_id"], data["revision"], msg.from_user.id, data["field"], value)
     except ValueError as exc:
         await msg.answer(str(exc), parse_mode=None)
@@ -222,7 +230,7 @@ async def action(cb: CallbackQuery, state: FSMContext):
         await cb.answer(str(exc), show_alert=True)
         return
     await state.clear()
-    await cb.answer("ذخیره شد")
+    await cb.answer("جهت و واحد تغییر کرد؛ مبلغ جدید را وارد کنید." if operation == 'direction' else "ذخیره شد")
     if operation == "direction":
         await show_entry(cb.message, int(entry_id))
     else:
@@ -233,5 +241,5 @@ async def action(cb: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("acc:photo:"))
 async def old_accounting_menu(cb: CallbackQuery, state: FSMContext):
     await state.clear()
-    await cb.answer("ثبت حسابداری اکنون با نام و مبلغ به تومان انجام می‌شود.", show_alert=True)
+    await cb.answer("ثبت حسابداری با نام و مبلغ است؛ ورودی تومان و خروجی روبل.", show_alert=True)
     await show_report(cb.message)

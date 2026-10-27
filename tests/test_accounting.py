@@ -31,12 +31,14 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
         pending = await self.draft(status="pending")
         await accounting.change_entry(incoming, 0, 1, "posted")
         await accounting.change_entry(pending, 0, 1, "pending")
-        self.assertEqual(await accounting.totals(), {"in": 1000000000, "out": 0, "pending": 1})
+        self.assertEqual((await accounting.totals())["IRR"], {"in": 1000000000, "out": 0, "balance": 1000000000})
+        self.assertEqual((await accounting.totals())["pending"], 1)
         await accounting.change_entry(outgoing, 0, 1, "posted")
         await accounting.change_entry(incoming, 1, 1, "void")
-        self.assertEqual(await accounting.totals(), {"in": 0, "out": 1000000000, "pending": 1})
+        self.assertEqual((await accounting.totals())["IRR"], {"in": 0, "out": 1000000000, "balance": -1000000000})
+        self.assertEqual((await accounting.totals())["pending"], 1)
         await accounting.change_entry(pending, 1, 2, "settle")
-        self.assertEqual((await accounting.totals())["in"], 1000000000)
+        self.assertEqual((await accounting.totals())["IRR"]["in"], 1000000000)
 
     async def test_pending_receipt_requires_settlement_step(self):
         entry = await self.draft(status="pending")
@@ -51,7 +53,7 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
             accounting.change_entry(entry, 0, 1, "posted") for _ in range(2)
         ], return_exceptions=True)
         self.assertEqual(sum(isinstance(r, accounting.LedgerError) for r in results), 1)
-        self.assertEqual((await accounting.totals())["in"], 1000000000)
+        self.assertEqual((await accounting.totals())["IRR"]["in"], 1000000000)
 
     async def test_duplicate_reference_and_image_are_rejected(self):
         for kwargs in ({"reference": "۱۲۳-۴۵۶"}, {"file_hash": "same-photo-hash"}):
@@ -235,9 +237,9 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
                 entry = (await accounting.list_entries())[0]
                 self.assertEqual(entry["amount_rial"], 1000000000)
                 await feed(callback=f"acc:do:posted:{entry['id']}:{entry['revision']}", uid=43)
-                self.assertEqual((await accounting.totals())["in"], 0)
+                self.assertEqual((await accounting.totals())["IRR"]["in"], 0)
                 await feed(callback=f"acc:do:posted:{entry['id']}:{entry['revision']}")
-                self.assertEqual((await accounting.totals())["in"], 1000000000)
+                self.assertEqual((await accounting.totals())["IRR"]["in"], 1000000000)
                 with patch("core.rates.site_base_toman", AsyncMock(return_value=3350)):
                     await feed(callback="pe:rub_c2c:toffset:t1")
                     await feed(text="-۲۷۰")
@@ -263,17 +265,20 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(len(await accounting.list_entries()), before)
                 await feed(text="حسین - ۱۵٬۰۰۰٬۰۰۰")
                 outgoing = (await accounting.list_entries())[0]
-                self.assertEqual(outgoing["amount_rial"], 150000000)
+                self.assertEqual(outgoing["currency"], "RUB")
+                self.assertEqual(outgoing["amount_minor"], 1500000000)
                 self.assertEqual(accounting.entry_name(outgoing), "حسین")
                 await feed(callback=f"acc:do:posted:{outgoing['id']}:{outgoing['revision']}")
-                self.assertEqual((await accounting.totals())["out"], 150000000)
+                self.assertEqual((await accounting.totals())["RUB"]["out"], 1500000000)
                 await feed(callback="acc:home")
                 report = api.call_args.args[0].text
                 self.assertIn("میرحسین", report)
-                self.assertIn("۸۵,۰۰۰,۰۰۰ تومان", report)
+                self.assertIn("۱۰۰,۰۰۰,۰۰۰ تومان", report)
+                self.assertIn("۱۵,۰۰۰,۰۰۰ روبل", report)
+                self.assertNotIn("۸۵,۰۰۰,۰۰۰ تومان", report)
                 # A second click must not add another posting.
                 await feed(callback=f"acc:do:posted:{entry['id']}:{entry['revision']}")
-                self.assertEqual((await accounting.totals())["in"], 1000000000)
+                self.assertEqual((await accounting.totals())["IRR"]["in"], 1000000000)
                 # Old update buttons must never broadcast to users again.
                 api.reset_mock()
                 with patch.object(admin, "get_all_user_tg_ids", AsyncMock()) as recipients:

@@ -103,6 +103,8 @@ async def init_db() -> None:
                 admin_id INTEGER NOT NULL,
                 direction TEXT NOT NULL CHECK(direction IN ('in', 'out')),
                 amount_rial INTEGER NOT NULL DEFAULT 0 CHECK(amount_rial >= 0),
+                currency TEXT NOT NULL DEFAULT 'IRR' CHECK(currency IN ('IRR','RUB')),
+                amount_minor INTEGER NOT NULL DEFAULT 0 CHECK(amount_minor >= 0),
                 status TEXT NOT NULL DEFAULT 'draft'
                     CHECK(status IN ('draft', 'pending', 'posted', 'void')),
                 receipt_json TEXT NOT NULL DEFAULT '{}',
@@ -139,6 +141,16 @@ async def init_db() -> None:
                 await conn.commit()
             except Exception:
                 pass
+        # Legacy ledger values were explicitly stored as rials. Preserve them;
+        # rouble entries use their own tagged integer kopeck amount going forward.
+        await conn.execute("BEGIN IMMEDIATE")
+        columns = {row['name'] for row in await (await conn.execute('PRAGMA table_info(ledger)')).fetchall()}
+        if 'currency' not in columns:
+            await conn.execute("ALTER TABLE ledger ADD COLUMN currency TEXT NOT NULL DEFAULT 'IRR' CHECK(currency IN ('IRR','RUB'))")
+        if 'amount_minor' not in columns:
+            await conn.execute('ALTER TABLE ledger ADD COLUMN amount_minor INTEGER NOT NULL DEFAULT 0 CHECK(amount_minor >= 0)')
+        await conn.execute("UPDATE ledger SET amount_minor=amount_rial WHERE currency='IRR' AND amount_minor=0 AND amount_rial>0")
+        await conn.commit()
     finally:
         await conn.close()
 
