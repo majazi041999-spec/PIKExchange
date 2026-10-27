@@ -1,0 +1,21 @@
+{
+  "reference": "https://t.me/addstickers/PIKEXCHANGEBahramRu",
+  "owner_id": 6787962422,
+  "removed_reference_indices": [1, 2],
+  "removed": ["لطفا قبل از واریز هماهنگ کنید", "فقط واریز آنی (پل، کارت به کارت)"],
+  "stickers": [
+    {"key": "rate_validity", "reference_index": 0, "lines": ["به علت نوسانات", "اعتبار نرخ ۳۰ دقیقه"], "emoji": "⏳"},
+    {"key": "clear_receipt", "reference_index": 3, "lines": ["لطفا رسید واضح", "ارسال کنید"], "emoji": "🧾"},
+    {"key": "approved", "reference_index": 4, "lines": ["تایید شد"], "emoji": "✅"},
+    {"key": "stay_online", "reference_index": 5, "lines": ["لطفا آنلاین باشید"], "emoji": "🟢"},
+    {"key": "please_wait", "reference_index": 6, "lines": ["لطفا شکیبا باشید"], "emoji": "⏳"},
+    {"key": "screenshot_fa", "reference_index": 7, "lines": ["اسکرین شات", "لطفا"], "emoji": "📸"},
+    {"key": "screenshot_ru", "reference_index": 8, "lines": ["Скриншот", "Пожалуйста"], "emoji": "📸"},
+    {"key": "transferred_ru", "reference_index": 9, "lines": ["Перевёл"], "emoji": "✅"},
+    {"key": "settled", "reference_index": 10, "lines": ["تسویه شد"], "emoji": "✅"},
+    {"key": "contact", "reference_index": 11, "lines": ["+7 967 778 78 40"], "emoji": "📞"},
+    {"key": "brand", "reference_index": 12, "lines": [], "emoji": "💱"},
+    {"key": "payout_details", "reference_index": 13, "lines": ["لطفا موارد زیر را در", "یک پیام ارسال کنید", "شماره ۱۶ رقمی روی کارت", "شماره تلفن متصل به حساب", "نام صاحب حساب به روسی", "اسم بانک"], "emoji": "📇"},
+    {"key": "screenshot_again", "lines": ["اسکرین شات", "مجدد لطفا"], "emoji": "📸"}
+  ]
+}

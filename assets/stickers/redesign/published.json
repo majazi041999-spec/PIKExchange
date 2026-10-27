@@ -1,0 +1,162 @@
+{
+  "name": "PIK_Exchange_New_Bahram_ru_by_PIKexchange_bot",
+  "title": "PIK Exchange · @Bahram_ru",
+  "url": "https://t.me/addstickers/PIK_Exchange_New_Bahram_ru_by_PIKexchange_bot",
+  "owner_id": 6787962422,
+  "owner_username": "Bahram_ru",
+  "count": 13,
+  "reference": "https://t.me/addstickers/PIKEXCHANGEBahramRu",
+  "stickers": {
+    "rate_validity": {
+      "file_id": "CAACAgIAAxUAAWrg7zhXt8VzXiDIZweR7tFII3K1AAK0qQACZ48IS7-0NrkCpMdKPQQ",
+      "file_unique_id": "AgADtKkAAmePCEs",
+      "sha256": "4b1cfa0ae08b6703f96736195da4f5daa1133dec025ca600fbb5f276593ad11b",
+      "lines": [
+        "به علت نوسانات",
+        "اعتبار نرخ ۳۰ دقیقه"
+      ],
+      "telegram_sha256": "4df3855a1abeb4dfa5071fa85dbc249a2c40e7ef8b83bdee38f938012d4a388d",
+      "verification_color_mae": 1.5740737915039062,
+      "verification_alpha_mae": 0.0
+    },
+    "clear_receipt": {
+      "file_id": "CAACAgIAAxUAAWrg7zgRj4cOKhx3TxXHbnkgb-vZAAKKvQACqtkIS-2LUylMk64gPQQ",
+      "file_unique_id": "AgADir0AAqrZCEs",
+      "sha256": "21505eb3427e8c0c9ae8e55240bcdde0e533ddabae2f5f19569049c40e8dce78",
+      "lines": [
+        "لطفا رسید واضح",
+        "ارسال کنید"
+      ],
+      "telegram_sha256": "60130910bba5b239f6acddbd039a90bb12e82af12d845e5ba8cc2ffb318f9d1f",
+      "verification_color_mae": 1.5246505737304688,
+      "verification_alpha_mae": 0.0
+    },
+    "approved": {
+      "file_id": "CAACAgIAAxUAAWrg7zj8LErNuHWCFMIv0X_GyyETAAK5qgACpHkJS8Hw72NufZiBPQQ",
+      "file_unique_id": "AgADuaoAAqR5CUs",
+      "sha256": "40892201a23c58c503b6adc2ed0632ddc2add4df3c081f11287252ef6423c376",
+      "lines": [
+        "تایید شد"
+      ],
+      "telegram_sha256": "66a6a1705657e2fbb0085c651c3b356f5f457c288fbccce456d5cc99737ca76f",
+      "verification_color_mae": 1.5105133056640625,
+      "verification_alpha_mae": 0.0
+    },
+    "stay_online": {
+      "file_id": "CAACAgIAAxUAAWrg7zjJlnZDKyvAea4HHud4JYk5AAIusAACOtcBS20GU8FLkh9PPQQ",
+      "file_unique_id": "AgADLrAAAjrXAUs",
+      "sha256": "b97c6df2450053373e6f8102345be90fa82238f336535ec7b79db242eec0dc63",
+      "lines": [
+        "لطفا آنلاین باشید"
+      ],
+      "telegram_sha256": "e77655b5e9ae599d0ee8f15c07da931d0a93fb217e9978aa570b615ec36dc415",
+      "verification_color_mae": 1.4043846130371094,
+      "verification_alpha_mae": 0.0
+    },
+    "please_wait": {
+      "file_id": "CAACAgIAAxUAAWrg7ziujOQ-i_r9sK8rzVnGWbA5AAJnqgACXagJSwABS1dDaC0uVj0E",
+      "file_unique_id": "AgADZ6oAAl2oCUs",
+      "sha256": "7365d77362a7740c85202720d43a1c06b099f4947d7a368f718358b18878b145",
+      "lines": [
+        "لطفا شکیبا باشید"
+      ],
+      "telegram_sha256": "dd03f7541d037b4c4fba7827098fc2169239031bfc116e701600ad19813aa8c1",
+      "verification_color_mae": 1.3301773071289062,
+      "verification_alpha_mae": 0.0
+    },
+    "screenshot_fa": {
+      "file_id": "CAACAgIAAxUAAWrg7zj1aBCFm8OYoEwNEj4grxhVAAIHpAACfN8IS1lz9wjZ4mqHPQQ",
+      "file_unique_id": "AgADB6QAAnzfCEs",
+      "sha256": "fce39184e9f5985b4040ef074e394e3e5e0e6079cab89a60228bf9a4f924ff7e",
+      "lines": [
+        "اسکرین شات",
+        "لطفا"
+      ],
+      "telegram_sha256": "7bde28f78251ca58404848b6c1cfecff7c00bb335c0f4432900e6f39818616dc",
+      "verification_color_mae": 1.45770263671875,
+      "verification_alpha_mae": 0.0
+    },
+    "screenshot_ru": {
+      "file_id": "CAACAgIAAxUAAWrg7zjlIIwh_3VxvuphhuoVom-0AAIGswACBM0IS33kXS64vhf-PQQ",
+      "file_unique_id": "AgADBrMAAgTNCEs",
+      "sha256": "f1ddcf0a3dc1a1c39439654769095445a7bd57af9f563ed4362af67828691b67",
+      "lines": [
+        "Скриншот",
+        "Пожалуйста"
+      ],
+      "telegram_sha256": "d9885189639f94b1ceda718c22d637909f285f9c51f4fe4e8988756567b89a9a",
+      "verification_color_mae": 1.5333709716796875,
+      "verification_alpha_mae": 0.0
+    },
+    "transferred_ru": {
+      "file_id": "CAACAgIAAxUAAWrg7zhQuixgbPq9qKcdzAdIlA4pAAIjqAACGsAIS-f39TXjp0WqPQQ",
+      "file_unique_id": "AgADI6gAAhrACEs",
+      "sha256": "68d8edef67c421257fbd4528896735b29adb521fca80fd69cf83f12daf9cd980",
+      "lines": [
+        "Перевёл"
+      ],
+      "telegram_sha256": "e601c94ed9c4e5c70548728a602c66707e0a8d98e969c7b0d341d79a12d027ab",
+      "verification_color_mae": 1.53900146484375,
+      "verification_alpha_mae": 0.0
+    },
+    "settled": {
+      "file_id": "CAACAgIAAxUAAWrg7zgTkF66CJmEcrHPjY9JHHJQAAOqAAJJtglLBQXToXP8WT49BA",
+      "file_unique_id": "AgAEqgACSbYJSw",
+      "sha256": "ce14a440c12fe11a93521775671bb69783237a7cf30d618a195efad0e149b9c7",
+      "lines": [
+        "تسویه شد"
+      ],
+      "telegram_sha256": "14b3f8d1a36598bf29eb2fd47de02acda9135760004e082e6bff56a768a10ee8",
+      "verification_color_mae": 1.5275306701660156,
+      "verification_alpha_mae": 0.0
+    },
+    "contact": {
+      "file_id": "CAACAgIAAxUAAWrg7zg4rWlAEW_bLYQqSVpB328AA1WsAAJs7AhLKaIjYf-_I6E9BA",
+      "file_unique_id": "AgADVawAAmzsCEs",
+      "sha256": "acd43305d963c4070b9f8865678446f53afc06918efaf27e403811aad06d8e14",
+      "lines": [
+        "+7 967 778 78 40"
+      ],
+      "telegram_sha256": "da6afd9bba45266b20df886e4ada8e55f9647abfb26dca0b937d782f00fcd85f",
+      "verification_color_mae": 1.7474784851074219,
+      "verification_alpha_mae": 0.0
+    },
+    "brand": {
+      "file_id": "CAACAgIAAxUAAWrg7zjt81IAAYFJeV1CkKP2rhEd7wACKLAAAhcVCEvrhd_WDMMqTT0E",
+      "file_unique_id": "AgADKLAAAhcVCEs",
+      "sha256": "49e8db7727cf11eee508db575c39d50bd77566204abc4e9d4082d05b4db9511a",
+      "lines": [],
+      "telegram_sha256": "365677d0cfa5e4ed002b7bd4cd9b117c526f0383599a2534eb68f692247dc914",
+      "verification_color_mae": 1.4630928039550781,
+      "verification_alpha_mae": 0.0
+    },
+    "payout_details": {
+      "file_id": "CAACAgIAAxUAAWrg7zhOJu5p2HoaZfDfsKtf8W5AAAKRrwACIs0ISyiXrhMIh8ItPQQ",
+      "file_unique_id": "AgADka8AAiLNCEs",
+      "sha256": "4d2628562db701bee73c8759db47eb52441df2a239d179be245d20b647290ac3",
+      "lines": [
+        "لطفا موارد زیر را در",
+        "یک پیام ارسال کنید",
+        "شماره ۱۶ رقمی روی کارت",
+        "شماره تلفن متصل به حساب",
+        "نام صاحب حساب به روسی",
+        "اسم بانک"
+      ],
+      "telegram_sha256": "b2cee95b7161f5089f9615803482edeb230cba24d3436ca78fe5e17cdbc1aaa5",
+      "verification_color_mae": 1.0212326049804688,
+      "verification_alpha_mae": 0.0
+    },
+    "screenshot_again": {
+      "file_id": "CAACAgIAAxUAAWrg7zhxFCZmmNaao5OoJbPIsmK3AAKKrQACPVoJS3dtHQL_kgg7PQQ",
+      "file_unique_id": "AgADiq0AAj1aCUs",
+      "sha256": "e3fc12abb81eefaf8bdb492d053edc5347097c8b76bf0d7c0cd985b1afaa8e8d",
+      "lines": [
+        "اسکرین شات",
+        "مجدد لطفا"
+      ],
+      "telegram_sha256": "05c83c7320089e2122be0c8d17f77ce97802fc9b8e2864c988c8b150acb22cdd",
+      "verification_color_mae": 1.5106582641601562,
+      "verification_alpha_mae": 0.0
+    }
+  }
+}

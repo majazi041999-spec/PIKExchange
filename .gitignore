@@ -29,3 +29,8 @@ Thumbs.db
 assets/banks/official-check/
 assets/banks/raster/
 assets/banks/.upload-cache.json
+
+# Sticker reference downloads and private Telegram upload checkpoints
+assets/stickers/reference/
+assets/stickers/redesign/.upload-cache.json
+assets/stickers/redesign/PIK-Stickers.zip
