@@ -12,6 +12,7 @@ from bot.handlers.admin import IsAdmin, _b
 from core import accounting as ledger
 from core.jalali import jalali_from_db
 from core.utils import fa_digits
+from core.ledger_periods import PERIODS
 
 router = Router()
 router.message.filter(IsAdmin(), F.chat.type == "private")
@@ -65,22 +66,43 @@ def report_text(items, sums, offset=0):
     return "\n".join(lines)
 
 
-async def show_report(msg, offset=0):
-    items = await ledger.list_entries(PAGE_SIZE + 1, offset)
+async def show_report(msg, offset=0, period='all', anchor=None):
+    report = await ledger.period_report(period, anchor, PAGE_SIZE + 1, offset)
+    bounds = report['period']
+    anchor = bounds['anchor']
+    items = report['rows']
     has_more = len(items) > PAGE_SIZE
     items = items[:PAGE_SIZE]
     rows = [[("➕ ثبت ورودی", "acc:new:in"), ("➖ ثبت خروجی", "acc:new:out")]]
+    choices = [(('✓ ' if key == period else '') + title, f'acc:period:{key}:{anchor}:0') for key, title in PERIODS.items()]
+    rows.extend([choices[i:i + 2] for i in range(0, len(choices), 2)])
+    if period != 'all':
+        rows.append([('دورهٔ قبل', f"acc:period:{period}:{bounds['previous']}:0"),
+                     ('دورهٔ بعد', f"acc:period:{period}:{bounds['next']}:0")])
+        rows.append([('دورهٔ جاری', f'acc:period:{period}:today:0')])
     buttons = [(f"سند {fa_digits(e['id'])}", f"acc:view:{e['id']}") for e in items]
     rows.extend([buttons[i:i + 2] for i in range(0, len(buttons), 2)])
     navigation = []
     if offset:
-        navigation.append(("جدیدتر", f"acc:list:{max(0, offset - PAGE_SIZE)}"))
+        navigation.append(("جدیدتر", f"acc:period:{period}:{anchor}:{max(0, offset - PAGE_SIZE)}"))
     if has_more:
-        navigation.append(("قدیمی‌تر", f"acc:list:{offset + PAGE_SIZE}"))
+        navigation.append(("قدیمی‌تر", f"acc:period:{period}:{anchor}:{offset + PAGE_SIZE}"))
     if navigation:
         rows.append(navigation)
-    rows.extend([[("🔄 تازه‌سازی", "acc:home")], [("🔙 مدیریت", "admin")]])
-    await msg.answer(report_text(items, await ledger.totals(), offset), parse_mode="HTML", reply_markup=_kb(rows))
+    rows.extend([[("🔄 تازه‌سازی", f'acc:period:{period}:{anchor}:{offset}')], [("🔙 مدیریت", "admin")]])
+    heading = f"📅 <b>{bounds['label']} · {bounds['range_label']}</b>\nمبنای دوره: تاریخ ایجاد سند، به وقت تهران\n\n"
+    await msg.answer(heading + report_text(items, report['totals'], offset), parse_mode="HTML", reply_markup=_kb(rows))
+
+
+@router.callback_query(F.data.startswith('acc:period:'))
+async def period_report(cb: CallbackQuery, state: FSMContext):
+    try:
+        _, _, period, anchor, offset = cb.data.split(':')
+        await state.clear()
+        await show_report(cb.message, max(0, int(offset)), period, None if anchor == 'today' else anchor)
+    except ValueError:
+        return await cb.answer('دوره یا تاریخ معتبر نیست.', show_alert=True)
+    await cb.answer()
 
 
 @router.message(Command("accounting"))

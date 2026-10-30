@@ -166,7 +166,7 @@ class LedgerTests(unittest.IsolatedAsyncioTestCase):
         await show_report(msg)
         first = msg.answer.call_args
         self.assertLess(len(first.args[0]), 4096)
-        self.assertIn("acc:list:8", [b.callback_data for row in first.kwargs["reply_markup"].inline_keyboard for b in row])
+        self.assertTrue(any(b.callback_data.startswith('acc:period:all:') and b.callback_data.endswith(':8') for row in first.kwargs['reply_markup'].inline_keyboard for b in row))
         await show_report(msg, 8)
         self.assertIn("میرحسین", msg.answer.call_args.args[0])
         self.assertNotIn("acc:list:16", [b.callback_data for row in msg.answer.call_args.kwargs["reply_markup"].inline_keyboard for b in row])

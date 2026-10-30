@@ -31,6 +31,14 @@ authenticated responses and financial records are not cached for offline use.
 
 ## Server deployment
 
+Ledger period reports are available in the bot and web panel: daily, monthly,
+three-month, six-month, yearly and all time. Calendar periods use Jalali months
+and Tehran local time; three/six-month periods align to the start of the Jalali
+year. Previous/next/current navigation preserves the selected period while
+paging. Dates filter the document's creation time; only posted documents enter
+currency-specific totals. Pending documents remain visible and are counted
+separately. No scheduled messages or automatic daily broadcasts are sent.
+
 Install nginx and certbot >=5.4 in `/opt/pik-acme`. Install application requirements
 in the existing bot environment. After reviewing/pushing changes, pull them in
 `/opt/PIKExchangeBot`, run `bash deploy/prepare_web_tls.sh` once, then

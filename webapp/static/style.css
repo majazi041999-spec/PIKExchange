@@ -7,3 +7,4 @@
 
 .metric strong:has(sub){font-size:23px;white-space:nowrap;line-height:1.6}.metric strong sub{display:block;line-height:1.7;margin:3px 0 8px}.metric small{display:block;line-height:1.8}.columns>*{min-width:0}@media(max-width:500px){.metric strong:has(sub){font-size:19px;letter-spacing:-.5px}.metric strong sub{font-size:9px}.metric small{font-size:9px}.metric{min-height:145px}}
 @media(max-width:850px){#sidebar{visibility:hidden}#sidebar.open{visibility:visible}}
+.report-period{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px;margin-bottom:20px}.report-period p{margin:8px 0 0}.report-period .actions{flex-wrap:wrap}.toolbar .tabs{flex-wrap:wrap}

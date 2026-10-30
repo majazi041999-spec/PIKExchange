@@ -178,8 +178,8 @@ async def read(request):
         rows, total = await card_archive.list_cards(request.query.get('q', '')[:100], page=page, page_size=15)
         return web.json_response({'rows': rows, 'total': total})
     if section == 'ledger':
-        total = await query('SELECT COUNT(*) n FROM ledger', one=True)
-        return web.json_response({'rows': await accounting.list_entries(15, page * 15), 'total': total['n'], 'totals': await accounting.totals()})
+        return web.json_response(await accounting.period_report(
+            request.query.get('period', 'all'), request.query.get('anchor'), 15, page * 15))
     if section == 'cards':
         active = await cards.get_active_card()
         return web.json_response({'rows': await cards.get_cards(), 'active_id': active['id'] if active else None})

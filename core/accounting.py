@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 from core.db import _connect, _now
 from core.utils import en_digits, fa_digits
+from core.ledger_periods import period_bounds, period_filter
 
 MAX_AMOUNT_MINOR = 10**15
 CURRENCIES = {'IRR': {'label': 'تومان', 'factor': 10}, 'RUB': {'label': 'روبل', 'factor': 100}}
@@ -169,6 +170,35 @@ async def totals():
             values['balance'] = values['in'] - values['out']
         cur = await conn.execute("SELECT COUNT(*) n FROM ledger WHERE status='pending'")
         return {**sums, 'posted': posted, 'pending': (await cur.fetchone())["n"]}
+    finally:
+        await conn.close()
+
+
+async def period_report(period='all', anchor=None, limit=15, offset=0):
+    """One consistent snapshot; date is the document's creation date in Tehran."""
+    bounds = period_bounds(period, anchor)
+    clause, params = period_filter(bounds)
+    conn = await _connect()
+    try:
+        await conn.execute('BEGIN')
+        rows = await (await conn.execute(
+            'SELECT * FROM ledger WHERE 1=1' + clause + ' ORDER BY id DESC LIMIT ? OFFSET ?',
+            (*params, limit, offset))).fetchall()
+        total = (await (await conn.execute('SELECT COUNT(*) n FROM ledger WHERE 1=1' + clause, params)).fetchone())['n']
+        groups = await (await conn.execute(
+            'SELECT currency,direction,status,SUM(amount_minor) amount,COUNT(*) n FROM ledger WHERE 1=1'
+            + clause + ' GROUP BY currency,direction,status', params)).fetchall()
+        sums = {currency: {'in': 0, 'out': 0, 'balance': 0} for currency in CURRENCIES}
+        sums.update(posted=0, pending=0)
+        for row in groups:
+            if row['status'] == 'posted':
+                sums[row['currency']][row['direction']] += row['amount']
+                sums['posted'] += row['n']
+            elif row['status'] == 'pending':
+                sums['pending'] += row['n']
+        for currency in CURRENCIES:
+            sums[currency]['balance'] = sums[currency]['in'] - sums[currency]['out']
+        return {'rows': [_decode(row) for row in rows], 'total': total, 'totals': sums, 'period': bounds}
     finally:
         await conn.close()
 

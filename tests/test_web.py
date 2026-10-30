@@ -52,6 +52,26 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await web_auth.set_credentials(99, 'intruder', 'Not an admin password')
 
+    async def test_ledger_period_filter_and_invalid_period(self):
+        await self.login()
+        key = await accounting.create_manual_draft(1, 'out', 'حسین - ۱۲٫۵۰')
+        await accounting.change_entry(key, 0, 1, 'posted')
+        conn = await db._connect()
+        try:
+            await conn.execute("UPDATE ledger SET created_at='2024-03-20 00:00:00' WHERE id=?", (key,))
+            await conn.commit()
+        finally:
+            await conn.close()
+        response = await self.client.get('/api/ledger?period=day&anchor=2024-03-20')
+        self.assertEqual(response.status, 200)
+        data = await response.json()
+        self.assertEqual((data['total'], data['totals']['RUB']['out']), (1, 1250))
+        self.assertEqual(data['period']['range_label'], '۱۴۰۳/۰۱/۰۱ تا ۱۴۰۳/۰۱/۰۱')
+        data = await (await self.client.get('/api/ledger?period=day&anchor=2024-03-21')).json()
+        self.assertEqual((data['total'], data['totals']['RUB']['out']), (0, 0))
+        self.assertEqual((await self.client.get('/api/ledger?period=unknown')).status, 400)
+        self.assertEqual((await self.client.get('/api/ledger?period=month&anchor=wrong')).status, 400)
+
     async def test_ledger_confirmation_balance_and_stale_revision(self):
         csrf = await self.login()
         r = await self.post('ledger', {'action': 'create', 'direction': 'in', 'name': 'میرحسین', 'amount': '۱۰۰٬۰۰۰٬۰۰۰', 'currency': 'IRR'}, csrf)
